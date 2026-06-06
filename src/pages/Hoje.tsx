@@ -2,6 +2,7 @@ import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useCycle } from '../hooks/useCycle'
 import { useDb } from '../hooks/useDb'
+import { usePwaInstall } from '../hooks/usePwaInstall'
 import PhaseTag from '../components/PhaseTag'
 
 interface Props {
@@ -55,6 +56,7 @@ function HeaderArt() {
 export default function Hoje({ onNavigate }: Props) {
   const { prediction, avgCycleLen, lastPeriodStart } = useCycle()
   const { todayLog } = useDb()
+  const { canInstall, isInstalled, install } = usePwaInstall()
 
   const todayFormatted = format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })
 
@@ -73,6 +75,30 @@ export default function Hoje({ onNavigate }: Props) {
       </div>
 
       <div className="px-4 space-y-3">
+        {/* PWA install banner */}
+        {canInstall && !isInstalled && (
+          <button
+            onClick={install}
+            className="w-full flex items-center justify-between px-4 py-3 rounded-2xl text-white text-sm font-medium"
+            style={{ background: 'linear-gradient(135deg, #8b5cf6, #ec4899)' }}
+          >
+            <div className="flex items-center gap-2.5">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round">
+                <path d="M12 2v13M8 11l4 4 4-4" />
+                <path d="M3 17v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2" />
+              </svg>
+              <span>Instalar app no dispositivo</span>
+            </div>
+            <span className="opacity-70 text-xs">Grátis →</span>
+          </button>
+        )}
+        {isInstalled && (
+          <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-100">
+            <div className="w-2 h-2 rounded-full bg-emerald-400" />
+            <span className="text-xs text-slate-500 font-medium">App instalado no dispositivo</span>
+          </div>
+        )}
+
         {/* Phase card */}
         {prediction ? (
           <div className="gradient-border p-5">

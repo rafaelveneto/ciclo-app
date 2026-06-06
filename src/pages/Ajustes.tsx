@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
 import { db, setSetting } from '../db/database'
 import { useDb } from '../hooks/useDb'
+import { usePwaInstall } from '../hooks/usePwaInstall'
 
 const modos = [
   { value: 'geral', label: 'Acompanhamento geral' },
@@ -13,6 +14,7 @@ const modos = [
 
 export default function Ajustes() {
   const { settings } = useDb()
+  const { canInstall, isInstalled, install } = usePwaInstall()
   const [modo, setModo] = useState('')
   const [ultimoPeriodo, setUltimoPeriodo] = useState('')
   const [comprimentoCiclo, setComprimentoCiclo] = useState('28')
@@ -95,7 +97,36 @@ export default function Ajustes() {
 
   return (
     <div className="px-4 pt-6 pb-4 space-y-5">
-      <h1 className="text-2xl font-bold text-slate-800">Ajustes</h1>
+      <h1 className="text-2xl font-bold text-slate-900">
+        <span className="gradient-text">Ajustes</span>
+      </h1>
+
+      {/* PWA install */}
+      {canInstall && !isInstalled && (
+        <button
+          onClick={install}
+          className="w-full flex items-center justify-between px-5 py-4 rounded-2xl text-white"
+          style={{ background: 'linear-gradient(135deg, #8b5cf6, #ec4899)' }}
+        >
+          <div className="flex items-center gap-3">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round">
+              <path d="M12 2v13M8 11l4 4 4-4" />
+              <path d="M3 17v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2" />
+            </svg>
+            <div className="text-left">
+              <p className="font-semibold text-sm">Instalar app</p>
+              <p className="text-xs opacity-80">Adicionar à tela inicial</p>
+            </div>
+          </div>
+          <span className="text-sm opacity-80">→</span>
+        </button>
+      )}
+      {isInstalled && (
+        <div className="flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-emerald-50 border border-emerald-100">
+          <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+          <span className="text-sm text-emerald-700 font-medium">App instalado no dispositivo</span>
+        </div>
+      )}
 
       {/* Modo de uso */}
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
