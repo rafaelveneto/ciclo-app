@@ -46,6 +46,11 @@ export default function Insights() {
   const lutealLen = averageLutealLength(cycles, allLogs)
   const healthFlags = cycleHealthFlags(cycles, lutealLen)
 
+  // Cycle history (most recent first) — transparency for the auto-detection
+  const cycleHistory = [...cycles]
+    .sort((a, b) => (a.dataInicio > b.dataInicio ? -1 : 1))
+    .slice(0, 6)
+
   // Cycle length chart
   const cycleLengthData = cycles
     .filter((c) => c.comprimento != null)
@@ -356,6 +361,54 @@ export default function Insights() {
               )
             })}
           </div>
+        </div>
+      )}
+
+      {/* Cycle history — transparency for the auto-detected cycles */}
+      {cycleHistory.length > 0 && (
+        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">
+            Histórico de ciclos
+          </p>
+          <div className="space-y-2">
+            {cycleHistory.map((c, i) => {
+              const inicio = format(parseISO(c.dataInicio), "d 'de' MMM", { locale: ptBR })
+              const periodo = c.dataFim
+                ? differenceInDays(parseISO(c.dataFim), parseISO(c.dataInicio)) + 1
+                : null
+              return (
+                <div key={i} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
+                  <div className="flex items-center gap-3">
+                    <div className="w-1.5 h-8 rounded-full" style={{
+                      background: c.comprimento ? 'linear-gradient(180deg, #fb7185, #8b5cf6)' : '#e2e8f0'
+                    }} />
+                    <div>
+                      <p className="text-sm font-medium text-slate-700 capitalize">{inicio}</p>
+                      <p className="text-xs text-slate-400">
+                        {periodo ? `menstruação ${periodo}d` : 'menstruação registrada'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    {c.comprimento ? (
+                      <>
+                        <p className="text-sm font-bold text-slate-800">{c.comprimento}d</p>
+                        <p className="text-xs text-slate-400">ciclo</p>
+                      </>
+                    ) : (
+                      <span className="text-xs px-2 py-0.5 rounded-full text-white font-medium"
+                        style={{ background: 'linear-gradient(135deg, #34d399, #22d3ee)' }}>
+                        em curso
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <p className="text-xs text-slate-400 mt-3 leading-relaxed">
+            Ciclos detectados automaticamente a partir das menstruações que você registrou.
+          </p>
         </div>
       )}
 
