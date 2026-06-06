@@ -5,16 +5,38 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
 }
 
+function detectIos(): boolean {
+  const ua = navigator.userAgent
+  // iPhone, iPad (modern iPadOS reports as Macintosh with touch)
+  return /iphone|ipad|ipod/i.test(ua) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+}
+
+function detectSafari(): boolean {
+  const ua = navigator.userAgent
+  return /safari/i.test(ua) && !/chrome|crios|fxios/i.test(ua)
+}
+
 export function usePwaInstall() {
   const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null)
   const [isInstalled, setIsInstalled] = useState(false)
+  const [isIos, setIsIos] = useState(false)
+  const [isIosSafari, setIsIosSafari] = useState(false)
 
   useEffect(() => {
-    // Already running as installed PWA
-    if (window.matchMedia('(display-mode: standalone)').matches) {
+    const standalone = window.matchMedia('(display-mode: standalone)').matches
+    // iOS Safari also sets navigator.standalone
+    const iosStandalone = (navigator as Navigator & { standalone?: boolean }).standalone === true
+
+    if (standalone || iosStandalone) {
       setIsInstalled(true)
       return
     }
+
+    const ios = detectIos()
+    const safari = detectSafari()
+    setIsIos(ios)
+    setIsIosSafari(ios && safari)
 
     const handler = (e: Event) => {
       e.preventDefault()
@@ -40,5 +62,11 @@ export function usePwaInstall() {
     }
   }
 
-  return { canInstall: !!installEvent, isInstalled, install }
+  return {
+    canInstall: !!installEvent,
+    isInstalled,
+    isIos,
+    isIosSafari,
+    install,
+  }
 }

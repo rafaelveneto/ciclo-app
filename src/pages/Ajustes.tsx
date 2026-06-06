@@ -3,6 +3,7 @@ import { format } from 'date-fns'
 import { db, setSetting } from '../db/database'
 import { useDb } from '../hooks/useDb'
 import { usePwaInstall } from '../hooks/usePwaInstall'
+import IosInstallBanner from '../components/IosInstallBanner'
 
 const modos = [
   { value: 'geral', label: 'Acompanhamento geral' },
@@ -14,7 +15,7 @@ const modos = [
 
 export default function Ajustes() {
   const { settings } = useDb()
-  const { canInstall, isInstalled, install } = usePwaInstall()
+  const { canInstall, isInstalled, isIosSafari, install } = usePwaInstall()
   const [modo, setModo] = useState('')
   const [ultimoPeriodo, setUltimoPeriodo] = useState('')
   const [comprimentoCiclo, setComprimentoCiclo] = useState('28')
@@ -121,6 +122,11 @@ export default function Ajustes() {
           <span className="text-sm opacity-80">→</span>
         </button>
       )}
+      {/* iOS Safari instructions */}
+      {isIosSafari && !isInstalled && !canInstall && (
+        <IosInstallBanner />
+      )}
+
       {isInstalled && (
         <div className="flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-emerald-50 border border-emerald-100">
           <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />

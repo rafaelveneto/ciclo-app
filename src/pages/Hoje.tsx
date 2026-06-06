@@ -4,6 +4,7 @@ import { useCycle } from '../hooks/useCycle'
 import { useDb } from '../hooks/useDb'
 import { usePwaInstall } from '../hooks/usePwaInstall'
 import PhaseTag from '../components/PhaseTag'
+import IosInstallBanner from '../components/IosInstallBanner'
 
 interface Props {
   onNavigate: (tab: 'registrar' | 'calendario') => void
@@ -56,7 +57,7 @@ function HeaderArt() {
 export default function Hoje({ onNavigate }: Props) {
   const { prediction, avgCycleLen, lastPeriodStart } = useCycle()
   const { todayLog } = useDb()
-  const { canInstall, isInstalled, install } = usePwaInstall()
+  const { canInstall, isInstalled, isIosSafari, install } = usePwaInstall()
 
   const todayFormatted = format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })
 
@@ -75,7 +76,7 @@ export default function Hoje({ onNavigate }: Props) {
       </div>
 
       <div className="px-4 space-y-3">
-        {/* PWA install banner */}
+        {/* PWA install — Android/desktop */}
         {canInstall && !isInstalled && (
           <button
             onClick={install}
@@ -92,6 +93,12 @@ export default function Hoje({ onNavigate }: Props) {
             <span className="opacity-70 text-xs">Grátis →</span>
           </button>
         )}
+
+        {/* PWA install — iOS Safari */}
+        {isIosSafari && !isInstalled && !canInstall && (
+          <IosInstallBanner />
+        )}
+
         {isInstalled && (
           <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-100">
             <div className="w-2 h-2 rounded-full bg-emerald-400" />
