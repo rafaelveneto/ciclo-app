@@ -7,6 +7,27 @@ export function avgCycleLength(cycles: Cycle[]): number {
   return Math.round(valid.reduce((acc, c) => acc + (c.comprimento ?? 28), 0) / valid.length)
 }
 
+/**
+ * Weighted average cycle length — recent cycles count more, because the body
+ * changes over time (stress, age, lifestyle). Uses the last up-to-6 cycles with
+ * linearly increasing weights. This tracks real shifts far better than a flat mean.
+ */
+export function weightedAvgCycleLength(cycles: Cycle[]): number {
+  const valid = cycles
+    .filter((c) => c.comprimento != null && c.comprimento >= 21 && c.comprimento <= 45)
+    .map((c) => c.comprimento as number)
+  if (valid.length === 0) return 28
+  const recent = valid.slice(-6)
+  let weightedSum = 0
+  let weightTotal = 0
+  recent.forEach((len, i) => {
+    const w = i + 1 // most recent gets highest weight
+    weightedSum += len * w
+    weightTotal += w
+  })
+  return Math.round(weightedSum / weightTotal)
+}
+
 export function avgPeriodLength(cycles: Cycle[]): number {
   const withBoth = cycles.filter((c) => c.dataInicio && c.dataFim)
   if (withBoth.length === 0) return 5
@@ -27,11 +48,89 @@ export function cycleVariability(cycles: Cycle[]): number | null {
   return Math.round(Math.sqrt(variance) * 10) / 10
 }
 
+/**
+ * Detects clinically noteworthy patterns and returns gentle, non-alarmist flags.
+ * These are NOT diagnoses — they're cues to consider talking to a professional.
+ * Based on widely-used reference ranges (ACOG / FIGO).
+ */
+export interface HealthFlag {
+  level: 'info' | 'atencao'
+  title: string
+  text: string
+}
+
+export function cycleHealthFlags(
+  cycles: Cycle[],
+  lutealLength: number | null,
+): HealthFlag[] {
+  const flags: HealthFlag[] = []
+  const lengths = cycles
+    .filter((c) => c.comprimento != null)
+    .map((c) => c.comprimento as number)
+
+  if (lengths.length >= 2) {
+    const mean = lengths.reduce((a, b) => a + b, 0) / lengths.length
+
+    if (mean < 21) {
+      flags.push({
+        level: 'atencao',
+        title: 'Ciclos curtos',
+        text: 'Seus ciclos têm em média menos de 21 dias (polimenorreia). Vale conversar com um ginecologista.',
+      })
+    } else if (mean > 35) {
+      flags.push({
+        level: 'atencao',
+        title: 'Ciclos longos',
+        text: 'Seus ciclos têm em média mais de 35 dias (oligomenorreia). Pode valer uma avaliação médica.',
+      })
+    }
+
+    const variability = cycleVariability(cycles)
+    if (variability != null && variability > 7) {
+      flags.push({
+        level: 'atencao',
+        title: 'Ciclos irregulares',
+        text: `Há bastante variação na duração dos seus ciclos (±${variability} dias). Ciclos muito irregulares podem merecer investigação.`,
+      })
+    }
+  }
+
+  if (lutealLength != null && lutealLength < 10) {
+    flags.push({
+      level: 'atencao',
+      title: 'Fase lútea curta',
+      text: `Sua fase lútea média é de ${lutealLength} dias. Fases lúteas abaixo de 10 dias podem afetar a fertilidade — considere conversar com um especialista.`,
+    })
+  }
+
+  // Detect a long bleed (> 8 days) from any cycle with start/end recorded
+  const longBleed = cycles.find((c) => {
+    if (!c.dataFim) return false
+    const len = differenceInDays(parseISO(c.dataFim), parseISO(c.dataInicio)) + 1
+    return len > 8
+  })
+  if (longBleed) {
+    flags.push({
+      level: 'atencao',
+      title: 'Menstruação prolongada',
+      text: 'Registramos uma menstruação com mais de 8 dias. Sangramentos prolongados merecem atenção médica.',
+    })
+  }
+
+  return flags
+}
+
 export interface CyclePrediction {
   nextPeriodStart: string
+  // Uncertainty range for the next period (based on cycle variability)
+  nextPeriodRangeStart: string
+  nextPeriodRangeEnd: string
   fertileWindowStart: string
   fertileWindowEnd: string
   predictedOvulation: string
+  // True when ovulation was CONFIRMED by symptothermal data this cycle (not just predicted)
+  ovulationConfirmed: boolean
+  ovulationMethod: 'sintotermico' | 'temperatura' | 'muco' | null
   // Luteal phase: from day after ovulation to end of cycle (consistent ~12-16 days per person)
   lutealStart: string
   lutealLength: number
@@ -43,11 +142,33 @@ export interface CyclePrediction {
   confidence: 'baixa' | 'media' | 'alta'
 }
 
+export interface PredictOptions {
+  lutealLength?: number          // person's own avg luteal length (from confirmed ovulations)
+  variability?: number | null    // std-dev of cycle length, for the uncertainty range
+  confirmedOvulation?: {         // ovulation already confirmed this cycle via symptothermal data
+    date: string
+    method: 'sintotermico' | 'temperatura' | 'muco'
+    confirmed: boolean
+  } | null
+}
+
+/**
+ * Adaptive cycle prediction.
+ *
+ * Improvements over naive calendar prediction:
+ * - Ovulation is anchored on the person's OWN average luteal length when available
+ *   (luteal phase is the stable part of the cycle), instead of a fixed 14 days.
+ * - When this cycle's ovulation has already been CONFIRMED via temperature/mucus,
+ *   the fertile window and next-period date are recomputed from that real anchor.
+ * - Produces an uncertainty RANGE for the next period using measured variability.
+ * - Confidence reflects both data quantity and symptothermal confirmation.
+ */
 export function predictCycle(
   lastPeriodStart: string,
   cycleLength: number,
   periodLength: number,
   cycleCount: number,
+  opts: PredictOptions = {},
 ): CyclePrediction {
   const start = parseISO(lastPeriodStart)
   const today = new Date()
@@ -55,31 +176,43 @@ export function predictCycle(
 
   const currentCycleDay = differenceInDays(today, start) + 1
 
-  // Luteal phase is consistently ~14 days (actually 12-16, avg 14)
-  // Ovulation day = cycleLength - lutealPhaseLength
-  const lutealLength = 14
-  const ovulationDayIndex = cycleLength - lutealLength // 1-indexed day in cycle
-  const ovulationDate = addDays(start, ovulationDayIndex - 1)
+  const lutealLength = opts.lutealLength ?? 14
 
-  // Fertile window: sperm survive up to 5 days, egg lives ~24h
-  // So: ovulation-5 days to ovulation+1 day
+  // Ovulation: use confirmed date if we have one, else predict from luteal length.
+  let ovulationDate: Date
+  let ovulationConfirmed = false
+  let ovulationMethod: CyclePrediction['ovulationMethod'] = null
+
+  if (opts.confirmedOvulation) {
+    ovulationDate = parseISO(opts.confirmedOvulation.date)
+    ovulationConfirmed = opts.confirmedOvulation.confirmed
+    ovulationMethod = opts.confirmedOvulation.method
+  } else {
+    const ovulationDayIndex = cycleLength - lutealLength
+    ovulationDate = addDays(start, ovulationDayIndex - 1)
+  }
+
+  const ovulationDayIndex = differenceInDays(ovulationDate, start) + 1
+
+  // Fertile window: sperm survive up to 5 days, egg ~24h → ov-5 to ov+1
   const fertileStart = addDays(ovulationDate, -5)
   const fertileEnd = addDays(ovulationDate, 1)
-
-  // Luteal phase: day after ovulation to end of cycle
   const lutealStart = addDays(ovulationDate, 1)
 
-  // Next period
-  const nextPeriod = addDays(start, cycleLength)
+  // Next period: if ovulation confirmed, next period = ovulation + luteal length.
+  const nextPeriod = opts.confirmedOvulation
+    ? addDays(ovulationDate, lutealLength)
+    : addDays(start, cycleLength)
   const daysUntilNext = differenceInDays(nextPeriod, today)
 
-  // Days to ovulation (null if past)
-  const daysToOvulation = differenceInDays(ovulationDate, today)
+  // Uncertainty range from variability (±1 std dev, min ±1 day, cap ±5 days).
+  const spread = Math.min(5, Math.max(1, Math.round(opts.variability ?? 2)))
+  const nextPeriodRangeStart = addDays(nextPeriod, -spread)
+  const nextPeriodRangeEnd = addDays(nextPeriod, spread)
 
-  // Is today fertile?
+  const daysToOvulation = differenceInDays(ovulationDate, today)
   const isFertileToday = isWithinInterval(today, { start: fertileStart, end: fertileEnd })
 
-  // Phase detection
   let currentPhase: CyclePrediction['currentPhase']
   if (currentCycleDay >= 1 && currentCycleDay <= periodLength) {
     currentPhase = 'menstrual'
@@ -96,14 +229,22 @@ export function predictCycle(
     currentPhase = 'lutea'
   }
 
-  const confidence: CyclePrediction['confidence'] =
-    cycleCount < 3 ? 'baixa' : cycleCount <= 6 ? 'media' : 'alta'
+  // Confidence: data quantity + confirmation bonus.
+  let confidence: CyclePrediction['confidence']
+  if (ovulationConfirmed && cycleCount >= 3) confidence = 'alta'
+  else if (cycleCount < 3) confidence = ovulationConfirmed ? 'media' : 'baixa'
+  else if (cycleCount <= 6) confidence = 'media'
+  else confidence = 'alta'
 
   return {
     nextPeriodStart: format(nextPeriod, 'yyyy-MM-dd'),
+    nextPeriodRangeStart: format(nextPeriodRangeStart, 'yyyy-MM-dd'),
+    nextPeriodRangeEnd: format(nextPeriodRangeEnd, 'yyyy-MM-dd'),
     fertileWindowStart: format(fertileStart, 'yyyy-MM-dd'),
     fertileWindowEnd: format(fertileEnd, 'yyyy-MM-dd'),
     predictedOvulation: format(ovulationDate, 'yyyy-MM-dd'),
+    ovulationConfirmed,
+    ovulationMethod,
     lutealStart: format(lutealStart, 'yyyy-MM-dd'),
     lutealLength,
     currentPhase,

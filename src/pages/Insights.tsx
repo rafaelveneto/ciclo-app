@@ -6,7 +6,8 @@ import { format, parseISO, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useCycle } from '../hooks/useCycle'
 import { useDb } from '../hooks/useDb'
-import { detectThermalShift, cycleVariability } from '../lib/cycleCalc'
+import { detectThermalShift, cycleVariability, cycleHealthFlags } from '../lib/cycleCalc'
+import { averageLutealLength } from '../lib/cycleDetection'
 
 function StatCard({
   label, value, sub, gradient,
@@ -41,6 +42,9 @@ const phaseNames: Record<string, string> = {
 export default function Insights() {
   const { cycles, allLogs } = useDb()
   const { avgCycleLen, avgPeriodLen, lastPeriodStart } = useCycle()
+
+  const lutealLen = averageLutealLength(cycles, allLogs)
+  const healthFlags = cycleHealthFlags(cycles, lutealLen)
 
   // Cycle length chart
   const cycleLengthData = cycles
@@ -166,9 +170,35 @@ export default function Insights() {
           sub={variability === null ? 'Poucos dados' : variability <= 3 ? 'Ciclo regular' : variability <= 7 ? 'Moderada' : 'Irregular'}
           gradient="linear-gradient(135deg, #22c55e, #06b6d4)"
         />
-        <StatCard label="Ciclos registrados" value={String(cycles.length)} sub="histórico"
-          gradient="linear-gradient(135deg, #8b5cf6, #ec4899)" />
+        <StatCard
+          label="Fase lútea"
+          value={lutealLen != null ? `${lutealLen}d` : '—'}
+          sub={lutealLen != null ? 'confirmada' : 'registre TBC'}
+          gradient="linear-gradient(135deg, #8b5cf6, #ec4899)"
+        />
       </div>
+
+      {/* Health flags */}
+      {healthFlags.length > 0 && (
+        <div className="space-y-2">
+          {healthFlags.map((flag, i) => (
+            <div key={i} className="rounded-2xl p-4 border" style={{
+              borderColor: 'rgba(251,146,60,0.3)', background: 'rgba(251,146,60,0.06)'
+            }}>
+              <div className="flex items-start gap-3">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5">
+                  <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">{flag.title}</p>
+                  <p className="text-xs text-slate-500 leading-relaxed mt-0.5">{flag.text}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Cycle length chart */}
       {cycleLengthData.length > 1 ? (

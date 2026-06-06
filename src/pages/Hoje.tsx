@@ -3,6 +3,7 @@ import { ptBR } from 'date-fns/locale'
 import { useCycle } from '../hooks/useCycle'
 import { useDb } from '../hooks/useDb'
 import { usePwaInstall } from '../hooks/usePwaInstall'
+import { upsertDailyLog } from '../db/database'
 import PhaseTag from '../components/PhaseTag'
 import IosInstallBanner from '../components/IosInstallBanner'
 
@@ -58,8 +59,23 @@ export default function Hoje({ onNavigate }: Props) {
   const { prediction, avgCycleLen, lastPeriodStart } = useCycle()
   const { todayLog } = useDb()
   const { canInstall, isInstalled, isIosSafari, install } = usePwaInstall()
+  const { today } = useDb()
 
   const todayFormatted = format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })
+
+  // One-tap period start: logs today's flow as moderate, which auto-creates a cycle.
+  // Preserves any other data already logged today.
+  const marcarMenstruacao = async () => {
+    await upsertDailyLog({
+      ...todayLog,
+      data: today,
+      fluxo: { ...todayLog?.fluxo, intensidade: 'moderado' },
+    })
+  }
+
+  // Show the quick action when the period is due/late and no flow logged today.
+  const periodoAtrasadoOuProximo =
+    prediction != null && prediction.daysUntilNext <= 1 && !todayLog?.fluxo?.intensidade
 
   return (
     <div className="pb-4">
@@ -106,6 +122,26 @@ export default function Hoje({ onNavigate }: Props) {
           </div>
         )}
 
+        {/* One-tap period start */}
+        {periodoAtrasadoOuProximo && (
+          <button
+            onClick={marcarMenstruacao}
+            className="w-full flex items-center justify-between px-4 py-3.5 rounded-2xl text-white"
+            style={{ background: 'linear-gradient(135deg, #fb7185, #ef4444)' }}
+          >
+            <div className="flex items-center gap-3">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2c0 0-7 8-7 13a7 7 0 0 0 14 0c0-5-7-13-7-13z" />
+              </svg>
+              <div className="text-left">
+                <p className="font-semibold text-sm">Minha menstruação começou</p>
+                <p className="text-xs opacity-80">Toque para registrar hoje</p>
+              </div>
+            </div>
+            <span className="text-lg">+</span>
+          </button>
+        )}
+
         {/* Phase card */}
         {prediction ? (
           <div className="gradient-border p-5">
@@ -134,15 +170,18 @@ export default function Hoje({ onNavigate }: Props) {
                     : `há ${Math.abs(prediction.daysUntilNext)} dias`}
                 </p>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  {format(parseISO(prediction.nextPeriodStart), "d 'de' MMM", { locale: ptBR })}
+                  {format(parseISO(prediction.nextPeriodRangeStart), "d", { locale: ptBR })}–
+                  {format(parseISO(prediction.nextPeriodRangeEnd), "d 'de' MMM", { locale: ptBR })}
                 </p>
               </div>
               <div className="bg-slate-50 rounded-xl p-3">
                 <p className="text-xs text-slate-400 mb-1">Ciclo médio</p>
                 <p className="font-bold text-slate-800 text-sm">{avgCycleLen} dias</p>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  {lastPeriodStart
-                    ? `início ${format(parseISO(lastPeriodStart), "d 'de' MMM", { locale: ptBR })}`
+                  {prediction.lutealLength !== 14
+                    ? `lútea ${prediction.lutealLength}d`
+                    : lastPeriodStart
+                    ? `início ${format(parseISO(lastPeriodStart), "d/MM", { locale: ptBR })}`
                     : '—'}
                 </p>
               </div>
@@ -165,7 +204,15 @@ export default function Hoje({ onNavigate }: Props) {
         {/* Fertile window */}
         {prediction && (
           <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">Janela fértil</p>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Janela fértil</p>
+              {prediction.isFertileToday && (
+                <span className="text-xs px-2 py-0.5 rounded-full font-semibold text-white"
+                  style={{ background: 'linear-gradient(135deg, #34d399, #22d3ee)' }}>
+                  Fértil hoje
+                </span>
+              )}
+            </div>
             <div className="space-y-2.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
@@ -180,13 +227,29 @@ export default function Hoje({ onNavigate }: Props) {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <div className="w-2.5 h-2.5 rounded-full" style={{ background: 'linear-gradient(135deg, #06b6d4, #8b5cf6)' }} />
-                  <span className="text-sm text-slate-600">Ovulação prevista</span>
+                  <span className="text-sm text-slate-600">
+                    {prediction.ovulationConfirmed ? 'Ovulação confirmada' : 'Ovulação prevista'}
+                  </span>
                 </div>
                 <span className="text-sm font-semibold text-slate-800">
                   {format(parseISO(prediction.predictedOvulation), "d 'de' MMM", { locale: ptBR })}
                 </span>
               </div>
             </div>
+            {prediction.ovulationConfirmed && (
+              <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span className="text-xs text-emerald-700 font-medium">
+                  Confirmada por {prediction.ovulationMethod === 'sintotermico'
+                    ? 'temperatura + muco'
+                    : prediction.ovulationMethod === 'temperatura'
+                    ? 'temperatura basal'
+                    : 'muco cervical'}
+                </span>
+              </div>
+            )}
           </div>
         )}
 
