@@ -21,8 +21,11 @@ export default function App() {
   // onboardingDone is undefined while loading, false if not done, true if done
   if (onboardingDone === undefined) {
     return (
-      <div className="min-h-screen bg-rose-50 flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-rose-400 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin"
+          style={{ borderColor: 'transparent', borderTopColor: 'transparent',
+            background: 'conic-gradient(from 0deg, #ef4444, #8b5cf6, #ec4899, #ef4444)',
+            borderRadius: '50%', padding: 2 }} />
       </div>
     )
   }

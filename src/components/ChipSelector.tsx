@@ -23,10 +23,11 @@ export default function ChipSelector({ options, selected, onChange, className = 
             key={opt.value}
             type="button"
             onClick={() => toggle(opt.value)}
-            className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+            style={isSelected ? { background: 'linear-gradient(135deg, #ef4444, #f97316, #8b5cf6)', border: 'none' } : {}}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
               isSelected
-                ? 'bg-rose-500 text-white border-rose-500'
-                : 'bg-white text-slate-600 border-slate-200 hover:border-rose-300'
+                ? 'text-white shadow-sm'
+                : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
             }`}
           >
             {opt.label}

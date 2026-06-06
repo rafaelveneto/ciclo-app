@@ -1,1 +1,46 @@
 @import "tailwindcss";
+
+:root {
+  --gradient-rainbow: linear-gradient(135deg, #ef4444, #f97316, #eab308, #22c55e, #06b6d4, #8b5cf6, #ec4899);
+}
+
+/* Gradient border card */
+.gradient-border {
+  position: relative;
+  background: white;
+  border-radius: 1rem;
+}
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 1rem;
+  padding: 1.5px;
+  background: var(--gradient-rainbow);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Gradient text */
+.gradient-text {
+  background: var(--gradient-rainbow);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Phase gradients */
+.phase-menstrual  { background: linear-gradient(135deg, #fb7185, #ef4444); }
+.phase-folicular  { background: linear-gradient(135deg, #fb923c, #fbbf24); }
+.phase-ovulatoria { background: linear-gradient(135deg, #34d399, #22d3ee); }
+.phase-lutea      { background: linear-gradient(135deg, #a78bfa, #c084fc); }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 2px; }
+
+* { -webkit-tap-highlight-color: transparent; }
