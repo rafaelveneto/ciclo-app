@@ -8,15 +8,25 @@ import Calendario from './pages/Calendario'
 import Registrar from './pages/Registrar'
 import Insights from './pages/Insights'
 import Ajustes from './pages/Ajustes'
+import DesktopGate from './components/DesktopGate'
+import { useDevice } from './hooks/useDevice'
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('hoje')
+  const { isDesktop, isStandalone } = useDevice()
 
   // Check if onboarding is done
   const onboardingDone = useLiveQuery(async () => {
     const s = await db.settings.where('chave').equals('onboardingDone').first()
     return s?.valor === 'true'
   }, [])
+
+  // The app is mobile-first: desktop-browser visitors get a QR screen to install
+  // on their phone. An installed desktop PWA (standalone) still gets the full app.
+  // (Hooks above must run unconditionally before this early return.)
+  if (isDesktop && !isStandalone) {
+    return <DesktopGate />
+  }
 
   // onboardingDone is undefined while loading, false if not done, true if done
   if (onboardingDone === undefined) {

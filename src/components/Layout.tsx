@@ -1,3 +1,5 @@
+import InstallNag from './InstallNag'
+
 type Tab = 'hoje' | 'calendario' | 'registrar' | 'insights' | 'ajustes'
 
 interface Props {
@@ -96,7 +98,10 @@ const tabs: { id: Tab; label: string; Icon: React.ComponentType<{ active: boolea
 export default function Layout({ activeTab, onTabChange, children }: Props) {
   return (
     <div className="flex flex-col h-screen bg-white max-w-md mx-auto relative">
-      <main className="flex-1 overflow-y-auto pb-20">{children}</main>
+      <main className="flex-1 overflow-y-auto pb-20">
+        <InstallNag />
+        {children}
+      </main>
 
       <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-slate-100 z-50">
         <div className="max-w-md mx-auto flex">
