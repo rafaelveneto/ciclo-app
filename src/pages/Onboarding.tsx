@@ -55,6 +55,7 @@ function HeaderArt() {
 
 export default function Onboarding({ onComplete }: Props) {
   const [step, setStep] = useState(1)
+  const [nome, setNome] = useState('')
   const [ultimoPeriodo, setUltimoPeriodo] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [comprimentoCiclo, setComprimentoCiclo] = useState('28')
   const [modo, setModo] = useState('geral')
@@ -62,6 +63,7 @@ export default function Onboarding({ onComplete }: Props) {
 
   const handleFinish = async () => {
     setSaving(true)
+    await setSetting('nome', nome.trim())
     await setSetting('ultimoPeriodo', ultimoPeriodo)
     await setSetting('comprimentoCiclo', comprimentoCiclo)
     await setSetting('modo', modo)
@@ -136,12 +138,27 @@ export default function Onboarding({ onComplete }: Props) {
         {/* Step 2 */}
         {step === 2 && (
           <div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-1">Seu ciclo</h2>
+            <h2 className="text-2xl font-bold text-slate-900 mb-1">Sobre você</h2>
             <p className="text-slate-500 mb-6 text-sm">
-              Essas informações nos ajudam a calcular previsões para você.
+              Para deixar o app com a sua cara e calcular suas previsões.
             </p>
 
             <div className="space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Como podemos te chamar? <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={nome}
+                  onChange={(e) => setNome(e.target.value)}
+                  maxLength={40}
+                  autoComplete="given-name"
+                  placeholder="Seu nome ou apelido"
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white"
+                />
+              </div>
+
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
                   Início do último período
@@ -183,7 +200,7 @@ export default function Onboarding({ onComplete }: Props) {
               </button>
               <button
                 onClick={() => setStep(3)}
-                disabled={!ultimoPeriodo || !comprimentoCiclo}
+                disabled={!nome.trim() || !ultimoPeriodo || !comprimentoCiclo}
                 className="flex-1 py-3 rounded-xl font-semibold text-white disabled:opacity-40"
                 style={{ background: 'linear-gradient(135deg, #22c55e, #06b6d4, #8b5cf6)' }}
               >

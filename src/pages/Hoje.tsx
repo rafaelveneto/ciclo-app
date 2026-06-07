@@ -55,9 +55,12 @@ function HeaderArt() {
 
 export default function Hoje({ onNavigate }: Props) {
   const { prediction, avgCycleLen, lastPeriodStart } = useCycle()
-  const { todayLog, today } = useDb()
+  const { todayLog, today, settings } = useDb()
 
   const todayFormatted = format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })
+  const primeiroNome = (settings['nome'] ?? '').trim().split(' ')[0]
+  const hora = new Date().getHours()
+  const saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite'
 
   // One-tap period start: logs today's flow as moderate, which auto-creates a cycle.
   // Preserves any other data already logged today.
@@ -79,7 +82,11 @@ export default function Hoje({ onNavigate }: Props) {
       <div className="px-5 pt-6 pb-2">
         <p className="text-xs text-slate-400 capitalize mb-0.5">{todayFormatted}</p>
         <h1 className="text-2xl font-bold text-slate-900">
-          Olá! <span className="gradient-text">Bom dia</span>
+          {primeiroNome ? (
+            <>{saudacao}, <span className="gradient-text">{primeiroNome}</span></>
+          ) : (
+            <>Olá! <span className="gradient-text">{saudacao}</span></>
+          )}
         </h1>
       </div>
 

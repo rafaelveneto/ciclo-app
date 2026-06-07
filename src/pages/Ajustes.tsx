@@ -16,6 +16,7 @@ const modos = [
 export default function Ajustes() {
   const { settings, allLogs } = useDb()
   const { isInstalled } = usePwaInstall()
+  const [nome, setNome] = useState('')
   const [modo, setModo] = useState('')
   const [ultimoPeriodo, setUltimoPeriodo] = useState('')
   const [comprimentoCiclo, setComprimentoCiclo] = useState('28')
@@ -29,12 +30,14 @@ export default function Ajustes() {
   const primeiroRegistro = allLogs[0]?.data ?? null
 
   useEffect(() => {
+    if (settings['nome']) setNome(settings['nome'])
     if (settings['modo']) setModo(settings['modo'])
     if (settings['ultimoPeriodo']) setUltimoPeriodo(settings['ultimoPeriodo'])
     if (settings['comprimentoCiclo']) setComprimentoCiclo(settings['comprimentoCiclo'])
   }, [settings])
 
   const handleSave = async () => {
+    if (nome.trim()) await setSetting('nome', nome.trim())
     if (modo) await setSetting('modo', modo)
     if (ultimoPeriodo) await setSetting('ultimoPeriodo', ultimoPeriodo)
     if (comprimentoCiclo) await setSetting('comprimentoCiclo', comprimentoCiclo)
@@ -161,8 +164,21 @@ export default function Ajustes() {
       {/* Ciclo info */}
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-4">
         <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">
-          Dados do ciclo
+          Perfil &amp; ciclo
         </h2>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-2">
+            Seu nome
+          </label>
+          <input
+            type="text"
+            value={nome}
+            maxLength={40}
+            placeholder="Seu nome ou apelido"
+            onChange={(e) => setNome(e.target.value)}
+            className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-300"
+          />
+        </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">
             Início do último período
