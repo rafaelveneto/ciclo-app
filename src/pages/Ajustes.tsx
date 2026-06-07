@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
-import { format } from 'date-fns'
-import { db, setSetting } from '../db/database'
+import { format, parseISO, differenceInDays } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
+import { db, setSetting, buildBackup, importBackup } from '../db/database'
 import { useDb } from '../hooks/useDb'
 import { usePwaInstall } from '../hooks/usePwaInstall'
-import IosInstallBanner from '../components/IosInstallBanner'
 
 const modos = [
   { value: 'geral', label: 'Acompanhamento geral' },
@@ -14,12 +14,19 @@ const modos = [
 ]
 
 export default function Ajustes() {
-  const { settings } = useDb()
-  const { canInstall, isInstalled, isIosSafari, install } = usePwaInstall()
+  const { settings, allLogs } = useDb()
+  const { isInstalled } = usePwaInstall()
   const [modo, setModo] = useState('')
   const [ultimoPeriodo, setUltimoPeriodo] = useState('')
   const [comprimentoCiclo, setComprimentoCiclo] = useState('28')
   const [saved, setSaved] = useState(false)
+  const [busy, setBusy] = useState<null | 'export' | 'import'>(null)
+
+  // Backup status
+  const ultimoBackup = settings['ultimoBackup'] ? parseISO(settings['ultimoBackup']) : null
+  const diasDesdeBackup = ultimoBackup ? differenceInDays(new Date(), ultimoBackup) : null
+  const backupVencido = diasDesdeBackup == null || diasDesdeBackup >= 30
+  const primeiroRegistro = allLogs[0]?.data ?? null
 
   useEffect(() => {
     if (settings['modo']) setModo(settings['modo'])
@@ -36,25 +43,40 @@ export default function Ajustes() {
   }
 
   const handleExport = async () => {
-    const cycles = await db.cycles.toArray()
-    const logs = await db.dailyLogs.toArray()
-    const settingsData = await db.settings.toArray()
-    const meds = await db.medications.toArray()
+    setBusy('export')
+    try {
+      const data = await buildBackup()
+      const json = JSON.stringify(data)
+      const filename = `ciclo-backup-${format(new Date(), 'yyyy-MM-dd')}.json`
+      const file = new File([json], filename, { type: 'application/json' })
 
-    const exportData = {
-      exportedAt: new Date().toISOString(),
-      version: 1,
-      cycles,
-      dailyLogs: logs,
-      settings: settingsData,
-      medications: meds,
+      // On mobile, prefer the native share sheet so the file can go straight to
+      // WhatsApp / Drive / e-mail / AirDrop — the easiest way to move to a new phone.
+      const canShareFile =
+        typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })
+      if (canShareFile) {
+        try {
+          await navigator.share({ files: [file], title: 'Backup do Ciclo' })
+        } catch (err) {
+          // User cancelled the share sheet — that's fine, just stop.
+          if ((err as Error)?.name === 'AbortError') return
+          downloadBlob(json, filename)
+        }
+      } else {
+        downloadBlob(json, filename)
+      }
+      await setSetting('ultimoBackup', new Date().toISOString())
+    } finally {
+      setBusy(null)
     }
+  }
 
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+  const downloadBlob = (json: string, filename: string) => {
+    const blob = new Blob([json], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `ciclo-backup-${format(new Date(), 'yyyy-MM-dd')}.json`
+    a.download = filename
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -62,21 +84,24 @@ export default function Ajustes() {
   const handleImport = () => {
     const input = document.createElement('input')
     input.type = 'file'
-    input.accept = '.json'
+    input.accept = 'application/json,.json'
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0]
       if (!file) return
-      const text = await file.text()
+      setBusy('import')
       try {
-        const data = JSON.parse(text)
-        if (data.cycles) await db.cycles.bulkPut(data.cycles)
-        if (data.dailyLogs) await db.dailyLogs.bulkPut(data.dailyLogs)
-        if (data.settings) await db.settings.bulkPut(data.settings)
-        if (data.medications) await db.medications.bulkPut(data.medications)
-        alert('Dados importados com sucesso!')
+        const data = JSON.parse(await file.text())
+        if (!data || (!data.dailyLogs && !data.settings && !data.medications)) {
+          alert('Este arquivo não parece ser um backup do Ciclo.')
+          return
+        }
+        const r = await importBackup(data)
+        alert(`Backup restaurado!\n\n${r.logs} dias · ${r.settings} ajustes · ${r.meds} medicamentos`)
         window.location.reload()
       } catch {
-        alert('Erro ao importar os dados. Verifique o arquivo.')
+        alert('Erro ao importar. Verifique se o arquivo é um backup válido do Ciclo.')
+      } finally {
+        setBusy(null)
       }
     }
     input.click()
@@ -102,31 +127,7 @@ export default function Ajustes() {
         <span className="gradient-text">Ajustes</span>
       </h1>
 
-      {/* PWA install */}
-      {canInstall && !isInstalled && (
-        <button
-          onClick={install}
-          className="w-full flex items-center justify-between px-5 py-4 rounded-2xl text-white"
-          style={{ background: 'linear-gradient(135deg, #8b5cf6, #ec4899)' }}
-        >
-          <div className="flex items-center gap-3">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round">
-              <path d="M12 2v13M8 11l4 4 4-4" />
-              <path d="M3 17v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2" />
-            </svg>
-            <div className="text-left">
-              <p className="font-semibold text-sm">Instalar app</p>
-              <p className="text-xs opacity-80">Adicionar à tela inicial</p>
-            </div>
-          </div>
-          <span className="text-sm opacity-80">→</span>
-        </button>
-      )}
-      {/* iOS Safari instructions */}
-      {isIosSafari && !isInstalled && !canInstall && (
-        <IosInstallBanner />
-      )}
-
+      {/* Install confirmation (the global banner handles prompting when not installed) */}
       {isInstalled && (
         <div className="flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-emerald-50 border border-emerald-100">
           <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
@@ -197,28 +198,82 @@ export default function Ajustes() {
         </button>
       </div>
 
-      {/* Data management */}
+      {/* Backup reminder */}
+      {allLogs.length > 0 && backupVencido && (
+        <div className="rounded-2xl p-4 border flex items-start gap-3" style={{
+          borderColor: 'rgba(251,146,60,0.3)', background: 'rgba(251,146,60,0.06)'
+        }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5">
+            <path d="M21 12a9 9 0 1 1-9-9c2.5 0 4.8 1 6.4 2.6L21 8" /><path d="M21 3v5h-5" />
+          </svg>
+          <div>
+            <p className="text-sm font-semibold text-slate-800">
+              {diasDesdeBackup == null ? 'Faça seu primeiro backup' : 'Hora de fazer backup'}
+            </p>
+            <p className="text-xs text-slate-500 leading-relaxed mt-0.5">
+              Seus dados ficam só neste aparelho. Guarde uma cópia para não perder seu
+              histórico se trocar de celular ou limpar o navegador.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Backup & data */}
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-3">
         <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-2">
-          Dados
+          Backup &amp; dados
         </h2>
+
+        {/* Data summary */}
+        <div className="bg-slate-50 rounded-xl px-4 py-3 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold text-slate-700">{allLogs.length} dias registrados</p>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {primeiroRegistro
+                ? `desde ${format(parseISO(primeiroRegistro), "d 'de' MMM 'de' yyyy", { locale: ptBR })}`
+                : 'nenhum registro ainda'}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-slate-400">Último backup</p>
+            <p className={`text-xs font-medium ${backupVencido ? 'text-orange-500' : 'text-emerald-600'}`}>
+              {ultimoBackup
+                ? format(ultimoBackup, "d/MM/yyyy", { locale: ptBR })
+                : 'nunca'}
+            </p>
+          </div>
+        </div>
+
         <button
           onClick={handleExport}
-          className="w-full border border-slate-200 text-slate-700 py-3 rounded-xl font-medium text-sm hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
+          disabled={busy != null}
+          className="w-full py-3 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 disabled:opacity-60"
+          style={{ background: 'linear-gradient(135deg, #8b5cf6, #ec4899)' }}
         >
-          📤 Exportar dados (JSON)
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7" /><polyline points="16 6 12 2 8 6" /><line x1="12" y1="2" x2="12" y2="15" />
+          </svg>
+          {busy === 'export' ? 'Gerando…' : 'Salvar / enviar backup'}
         </button>
         <button
           onClick={handleImport}
-          className="w-full border border-slate-200 text-slate-700 py-3 rounded-xl font-medium text-sm hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
+          disabled={busy != null}
+          className="w-full border border-slate-200 text-slate-700 py-3 rounded-xl font-medium text-sm hover:bg-slate-50 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
         >
-          📥 Importar dados (JSON)
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7" /><polyline points="8 10 12 14 16 10" /><line x1="12" y1="14" x2="12" y2="2" />
+          </svg>
+          {busy === 'import' ? 'Restaurando…' : 'Restaurar backup'}
         </button>
+        <p className="text-xs text-slate-400 leading-relaxed text-center px-2">
+          Para mudar de celular: salve o backup, abra o Ciclo no aparelho novo e toque em Restaurar.
+        </p>
+
         <button
           onClick={handleClearData}
-          className="w-full border border-red-200 text-red-600 py-3 rounded-xl font-medium text-sm hover:bg-red-50 transition-colors"
+          className="w-full border border-red-200 text-red-600 py-3 rounded-xl font-medium text-sm hover:bg-red-50 transition-colors mt-1"
         >
-          🗑️ Apagar todos os dados
+          Apagar todos os dados
         </button>
       </div>
 

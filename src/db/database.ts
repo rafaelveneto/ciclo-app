@@ -94,3 +94,66 @@ export async function upsertDailyLog(log: DailyLog): Promise<void> {
     await db.dailyLogs.add(log)
   }
 }
+
+// ─── Backup / restore ──────────────────────────────────────────────────────
+
+export interface BackupData {
+  version?: number
+  exportedAt?: string
+  dailyLogs?: DailyLog[]
+  settings?: Setting[]
+  medications?: Medication[]
+  cycles?: Cycle[] // legacy (cycles are now derived from logs) — ignored on import
+}
+
+/** Snapshot of everything worth keeping. Cycles are derived, so we don't export them. */
+export async function buildBackup(): Promise<BackupData> {
+  const [dailyLogs, settings, medications] = await Promise.all([
+    db.dailyLogs.toArray(),
+    db.settings.toArray(),
+    db.medications.toArray(),
+  ])
+  return { version: 2, exportedAt: new Date().toISOString(), dailyLogs, settings, medications }
+}
+
+/**
+ * Restore/merge a backup.
+ *
+ * Crucially, we merge by NATURAL keys (date for logs, chave for settings, nome
+ * for meds) — never by the auto-increment id. Ids are device-local; importing by
+ * id from another phone would silently overwrite unrelated rows or violate the
+ * unique `data` index. Same-day entries are replaced by the backup's version.
+ */
+export async function importBackup(data: BackupData): Promise<{ logs: number; settings: number; meds: number }> {
+  const result = { logs: 0, settings: 0, meds: 0 }
+
+  if (Array.isArray(data.dailyLogs)) {
+    for (const raw of data.dailyLogs) {
+      if (!raw?.data) continue
+      const { id: _id, ...rest } = raw
+      await upsertDailyLog(rest as DailyLog)
+      result.logs++
+    }
+  }
+
+  if (Array.isArray(data.settings)) {
+    for (const s of data.settings) {
+      if (!s?.chave || s.chave === 'ultimoBackup') continue
+      await setSetting(s.chave, s.valor)
+      result.settings++
+    }
+  }
+
+  if (Array.isArray(data.medications)) {
+    for (const m of data.medications) {
+      if (!m?.nome) continue
+      const { id: _id, ...rest } = m
+      const existing = await db.medications.where('nome').equals(m.nome).first()
+      if (existing?.id != null) await db.medications.update(existing.id, rest)
+      else await db.medications.add(rest as Medication)
+      result.meds++
+    }
+  }
+
+  return result
+}
