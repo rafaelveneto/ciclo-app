@@ -116,10 +116,11 @@ export default function Onboarding({ onComplete }: Props) {
                   <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                 </svg>
                 <div>
-                  <h3 className="font-semibold text-slate-800 mb-1">Privacidade total</h3>
+                  <h3 className="font-semibold text-slate-800 mb-1">Privacidade de verdade</h3>
                   <p className="text-sm text-slate-500 leading-relaxed">
-                    Seus dados <strong className="text-slate-700">nunca saem do seu dispositivo</strong>.
-                    Armazenamento local, sem contas, sem servidores, sem rastreamento.
+                    Diferente da maioria dos apps, seus dados{' '}
+                    <strong className="text-slate-700">nunca saem do seu aparelho</strong>.
+                    Sem conta, sem nuvem, sem rastreamento — e você apaga tudo quando quiser.
                   </p>
                 </div>
               </div>

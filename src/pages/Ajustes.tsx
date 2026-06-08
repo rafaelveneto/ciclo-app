@@ -138,6 +138,30 @@ export default function Ajustes() {
         </div>
       )}
 
+      {/* Privacy — our biggest differentiator */}
+      <div className="rounded-2xl p-5 text-white" style={{ background: 'linear-gradient(135deg, #7c3aed, #6366f1)' }}>
+        <div className="flex items-center gap-2.5 mb-2">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            <path d="M9 12l2 2 4-4" />
+          </svg>
+          <p className="font-bold text-base">Seus dados são só seus</p>
+        </div>
+        <p className="text-sm text-white/85 leading-relaxed mb-3">
+          Diferente da maioria dos apps, o Ciclo guarda tudo apenas no seu aparelho.
+        </p>
+        <div className="space-y-1.5">
+          {['Sem conta e sem login', 'Nada é enviado para a nuvem', 'Sem rastreamento e sem anúncios', 'Você exporta ou apaga quando quiser'].map((t) => (
+            <div key={t} className="flex items-center gap-2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 opacity-90">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              <span className="text-sm text-white/90">{t}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Modo de uso */}
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
         <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">

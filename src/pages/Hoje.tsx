@@ -1,11 +1,12 @@
-import { format, parseISO, addDays } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useCycle } from '../hooks/useCycle'
 import { useDb } from '../hooks/useDb'
 import { upsertDailyLog } from '../db/database'
 import PhaseTag from '../components/PhaseTag'
-import { phaseInfo, pregnancyChance, pregnancyChanceLabel } from '../lib/phaseInfo'
-import { personalPhasePatterns, cycleVariability, projectDayPhase, projectedToPhase } from '../lib/cycleCalc'
+import { phaseInfo } from '../lib/phaseInfo'
+import { cycleVariability } from '../lib/cycleCalc'
+import OQueEsperarHoje from '../components/OQueEsperarHoje'
 
 interface Props {
   onNavigate: (tab: 'registrar' | 'calendario') => void
@@ -249,111 +250,16 @@ export default function Hoje({ onNavigate }: Props) {
         )}
 
         {/* What to expect today */}
-        {prediction && (() => {
-          const phase = prediction.currentPhase
-          const info = phaseInfo[phase]
-          const chance = pregnancyChance(phase, prediction.isFertileToday, prediction.daysToOvulation)
-          const patterns = personalPhasePatterns({
-            cycles, logs: allLogs, cycleLen: avgCycleLen, periodLen: avgPeriodLen,
-            lutealLen: prediction.lutealLength,
-          })[phase]
-          const personal = [...patterns.sintomas, ...patterns.humor]
-
-          // Tomorrow forecast
-          const tomorrowPhase = projectedToPhase(projectDayPhase({
-            date: addDays(new Date(), 1), anchorStart: lastPeriodStart,
-            cycleLen: avgCycleLen, periodLen: avgPeriodLen, lutealLen: prediction.lutealLength,
-            hasFlowLog: false,
-          }))
-          const tomorrowInfo = tomorrowPhase ? phaseInfo[tomorrowPhase] : null
-          const mudaFase = tomorrowPhase !== null && tomorrowPhase !== phase
-          const chanceColor = chance === 'alta'
-            ? 'linear-gradient(135deg, #34d399, #22d3ee)'
-            : chance === 'media'
-            ? 'linear-gradient(135deg, #fbbf24, #f97316)'
-            : 'linear-gradient(135deg, #cbd5e1, #94a3b8)'
-          return (
-            <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">O que esperar hoje</p>
-
-              {/* Quick stats */}
-              <div className="grid grid-cols-3 gap-2 mb-4">
-                <div className="bg-slate-50 rounded-xl p-2.5 text-center">
-                  <p className="text-[10px] text-slate-400 mb-0.5">Dia do ciclo</p>
-                  <p className="font-bold text-slate-800">{prediction.currentCycleDay}</p>
-                </div>
-                <div className="rounded-xl p-2.5 text-center" style={{ background: chanceColor }}>
-                  <p className="text-[10px] text-white/80 mb-0.5">Chance de gravidez</p>
-                  <p className="font-bold text-white text-sm">{pregnancyChanceLabel[chance]}</p>
-                </div>
-                <div className="bg-slate-50 rounded-xl p-2.5 text-center">
-                  <p className="text-[10px] text-slate-400 mb-0.5">Fase</p>
-                  <p className="font-bold text-slate-800 text-sm">{info.emoji} {info.nome}</p>
-                </div>
-              </div>
-
-              <p className="text-sm text-slate-600 leading-relaxed mb-3">{info.resumo}</p>
-
-              {/* You might feel */}
-              <p className="text-xs font-semibold text-slate-400 mb-1.5">Você pode sentir</p>
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {info.fisicos.slice(0, 3).map((s) => (
-                  <span key={s} className="text-xs px-2 py-0.5 bg-rose-50 rounded-full text-rose-600 border border-rose-100">{s}</span>
-                ))}
-                {info.emocionais.slice(0, 3).map((s) => (
-                  <span key={s} className="text-xs px-2 py-0.5 bg-violet-50 rounded-full text-violet-600 border border-violet-100">{s}</span>
-                ))}
-              </div>
-
-              {/* Personalized from her own history */}
-              {personal.length >= 2 && (
-                <div className="mb-3 px-3 py-2.5 rounded-xl bg-violet-50">
-                  <p className="text-[11px] font-semibold text-violet-400 mb-1.5">No seu histórico, nesta fase você costuma registrar</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {personal.map((s) => (
-                      <span key={s} className="text-xs px-2 py-0.5 bg-white rounded-full text-violet-600 border border-violet-100">{s}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-amber-50">
-                <span className="text-sm">💡</span>
-                <p className="text-xs text-amber-700 leading-relaxed">{info.dica}</p>
-              </div>
-
-              {/* Self-care: food + movement (cycle syncing) */}
-              <div className="mt-2 grid grid-cols-1 gap-2">
-                <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-emerald-50">
-                  <span className="text-sm">🍎</span>
-                  <p className="text-xs text-emerald-700 leading-relaxed"><strong>Alimentação:</strong> {info.alimentacao}</p>
-                </div>
-                <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-sky-50">
-                  <span className="text-sm">🏃‍♀️</span>
-                  <p className="text-xs text-sky-700 leading-relaxed"><strong>Movimento:</strong> {info.movimento}</p>
-                </div>
-              </div>
-
-              {/* Tomorrow forecast */}
-              {tomorrowInfo && (
-                <div className="mt-3 pt-3 border-t border-slate-100">
-                  <p className="text-xs text-slate-500 leading-relaxed">
-                    <span className="font-semibold text-slate-600">Amanhã:</span>{' '}
-                    {mudaFase
-                      ? <>você entra na fase {tomorrowInfo.emoji} <strong>{tomorrowInfo.nome.toLowerCase()}</strong> — pode começar a sentir {tomorrowInfo.fisicos.slice(0, 2).join(', ').toLowerCase()}.</>
-                      : <>ainda na fase {tomorrowInfo.nome.toLowerCase()} — siga se cuidando como hoje.</>}
-                  </p>
-                </div>
-              )}
-
-              {chance !== 'baixa' && (
-                <p className="text-[11px] text-slate-400 mt-2.5 leading-relaxed">
-                  A chance de gravidez é uma estimativa e não substitui um método contraceptivo.
-                </p>
-              )}
-            </div>
-          )
-        })()}
+        {prediction && (
+          <OQueEsperarHoje
+            prediction={prediction}
+            cycles={cycles}
+            logs={allLogs}
+            avgCycleLen={avgCycleLen}
+            avgPeriodLen={avgPeriodLen}
+            lastPeriodStart={lastPeriodStart}
+          />
+        )}
 
         {/* Today's log */}
         <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
