@@ -64,7 +64,11 @@ function gradientColor(t) {
   return [Math.round(r), Math.round(g), Math.round(b)]
 }
 
-function drawIcon(size) {
+// When `fullBleed` is true we produce a MASKABLE icon: the gradient fills the
+// entire square (no transparency) so launchers/splash screens can apply any mask
+// (circle, squircle…) without exposing black/empty corners. The symbol stays
+// within the central safe zone. When false we draw the regular circular icon.
+function drawIcon(size, fullBleed = false) {
   const pixels = Buffer.alloc(size * size * 4, 0)
   const cx = size / 2
   const cy = size / 2
@@ -74,15 +78,22 @@ function drawIcon(size) {
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       const idx = (y * size + x) * 4
+
+      // gradient direction: top-left to bottom-right
+      const t = (x / size * 0.6 + y / size * 0.4)
+      const [r, g, b] = gradientColor(Math.min(1, t))
+
+      if (fullBleed) {
+        // fill every pixel — opaque square, safe for masking
+        pixels[idx] = r; pixels[idx + 1] = g; pixels[idx + 2] = b; pixels[idx + 3] = 255
+        continue
+      }
+
       const dx = x - cx
       const dy = y - cy
       const dist = Math.sqrt(dx * dx + dy * dy)
 
       if (dist > radius + 1) continue   // outside circle
-
-      // gradient direction: top-left to bottom-right
-      const t = (x / size * 0.6 + y / size * 0.4)
-      const [r, g, b] = gradientColor(Math.min(1, t))
 
       const alpha = dist > radius - 1
         ? Math.max(0, Math.round(255 * (radius - dist)))
@@ -163,11 +174,15 @@ function drawIcon(size) {
 // ── Generate & save ──────────────────────────────────────────────────────────
 
 for (const size of [192, 512]) {
-  console.log(`Generating icon-${size}.png...`)
-  const pixels = drawIcon(size)
-  const png = encodePNG(size, size, pixels)
+  // Regular (circular, transparent corners) — purpose "any"
+  const png = encodePNG(size, size, drawIcon(size, false))
   fs.writeFileSync(`public/icon-${size}.png`, png)
   console.log(`  ✓ public/icon-${size}.png (${Math.round(png.length / 1024)} KB)`)
+
+  // Maskable (full-bleed square) — purpose "maskable"
+  const maskPng = encodePNG(size, size, drawIcon(size, true))
+  fs.writeFileSync(`public/icon-maskable-${size}.png`, maskPng)
+  console.log(`  ✓ public/icon-maskable-${size}.png (${Math.round(maskPng.length / 1024)} KB)`)
 }
 
 console.log('Done!')
