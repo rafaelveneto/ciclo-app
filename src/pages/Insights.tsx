@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine,
@@ -8,6 +9,7 @@ import { useCycle } from '../hooks/useCycle'
 import { useDb } from '../hooks/useDb'
 import { detectThermalShift, cycleVariability, cycleHealthFlags } from '../lib/cycleCalc'
 import { averageLutealLength } from '../lib/cycleDetection'
+import { generateMedicalReportPdf } from '../lib/report'
 
 function StatCard({
   label, value, sub, gradient,
@@ -40,11 +42,33 @@ const phaseNames: Record<string, string> = {
 }
 
 export default function Insights() {
-  const { cycles, allLogs } = useDb()
+  const { cycles, allLogs, settings } = useDb()
   const { avgCycleLen, avgPeriodLen, lastPeriodStart } = useCycle()
+  const [reportBusy, setReportBusy] = useState(false)
 
   const lutealLen = averageLutealLength(cycles, allLogs)
   const healthFlags = cycleHealthFlags(cycles, lutealLen)
+  const variabilityForReport = cycleVariability(cycles)
+
+  const handleReport = async () => {
+    setReportBusy(true)
+    try {
+      await generateMedicalReportPdf({
+        nome: settings['nome'] ?? '',
+        cycles,
+        logs: allLogs,
+        avgCycleLen,
+        avgPeriodLen,
+        variability: variabilityForReport,
+        lutealLen,
+        flags: healthFlags,
+      })
+    } catch {
+      alert('Não foi possível gerar o relatório. Tente novamente.')
+    } finally {
+      setReportBusy(false)
+    }
+  }
 
   // Cycle history (most recent first) — transparency for the auto-detection
   const cycleHistory = [...cycles]
@@ -409,6 +433,35 @@ export default function Insights() {
           <p className="text-xs text-slate-400 mt-3 leading-relaxed">
             Ciclos detectados automaticamente a partir das menstruações que você registrou.
           </p>
+        </div>
+      )}
+
+      {/* Medical report (PDF) */}
+      {allLogs.length > 0 && (
+        <div className="gradient-border p-5">
+          <div className="flex items-start gap-3 mb-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: 'linear-gradient(135deg, #8b5cf6, #ec4899)' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
+                <line x1="9" y1="13" x2="15" y2="13" /><line x1="9" y1="17" x2="13" y2="17" />
+              </svg>
+            </div>
+            <div>
+              <p className="font-bold text-slate-800 text-sm">Relatório para o médico</p>
+              <p className="text-xs text-slate-500 leading-relaxed mt-0.5">
+                Um resumo em PDF do seu ciclo, humores e sintomas para levar ou enviar ao ginecologista.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleReport}
+            disabled={reportBusy}
+            className="w-full py-3 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 disabled:opacity-60"
+            style={{ background: 'linear-gradient(135deg, #8b5cf6, #ec4899)' }}
+          >
+            {reportBusy ? 'Gerando PDF…' : 'Gerar relatório (PDF)'}
+          </button>
         </div>
       )}
 
