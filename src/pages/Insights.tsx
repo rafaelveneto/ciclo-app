@@ -11,6 +11,7 @@ import { useDb } from '../hooks/useDb'
 import { detectThermalShift, cycleVariability, cycleHealthFlags } from '../lib/cycleCalc'
 import { averageLutealLength } from '../lib/cycleDetection'
 import { generateMedicalReportPdf } from '../lib/report'
+import SaibaMais from '../components/SaibaMais'
 
 function StatCard({
   label, value, sub, gradient,
@@ -263,6 +264,9 @@ export default function Insights() {
           ))}
         </div>
       )}
+
+      {/* Educational library */}
+      <SaibaMais />
 
       {/* Mood distribution donut */}
       {moodData.length > 0 && (

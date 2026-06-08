@@ -217,7 +217,7 @@ export default function Registrar() {
       apetite: apetite.length > 0 ? apetite : undefined,
       digestao: digestao || undefined,
       peso: peso ? parseFloat(peso) : undefined,
-      sexo: { ativo: sexoAtivo, protecao: sexoProtecao },
+      sexo: sexoAtivo ? { ativo: true, protecao: sexoProtecao } : undefined,
       notas: notas || undefined,
     }
     await upsertDailyLog(log)

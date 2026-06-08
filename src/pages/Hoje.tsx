@@ -1,11 +1,11 @@
-import { format, parseISO } from 'date-fns'
+import { format, parseISO, addDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useCycle } from '../hooks/useCycle'
 import { useDb } from '../hooks/useDb'
 import { upsertDailyLog } from '../db/database'
 import PhaseTag from '../components/PhaseTag'
 import { phaseInfo, pregnancyChance, pregnancyChanceLabel } from '../lib/phaseInfo'
-import { personalPhasePatterns, cycleVariability } from '../lib/cycleCalc'
+import { personalPhasePatterns, cycleVariability, projectDayPhase, projectedToPhase } from '../lib/cycleCalc'
 
 interface Props {
   onNavigate: (tab: 'registrar' | 'calendario') => void
@@ -258,6 +258,15 @@ export default function Hoje({ onNavigate }: Props) {
             lutealLen: prediction.lutealLength,
           })[phase]
           const personal = [...patterns.sintomas, ...patterns.humor]
+
+          // Tomorrow forecast
+          const tomorrowPhase = projectedToPhase(projectDayPhase({
+            date: addDays(new Date(), 1), anchorStart: lastPeriodStart,
+            cycleLen: avgCycleLen, periodLen: avgPeriodLen, lutealLen: prediction.lutealLength,
+            hasFlowLog: false,
+          }))
+          const tomorrowInfo = tomorrowPhase ? phaseInfo[tomorrowPhase] : null
+          const mudaFase = tomorrowPhase !== null && tomorrowPhase !== phase
           const chanceColor = chance === 'alta'
             ? 'linear-gradient(135deg, #34d399, #22d3ee)'
             : chance === 'media'
@@ -324,6 +333,18 @@ export default function Hoje({ onNavigate }: Props) {
                   <p className="text-xs text-sky-700 leading-relaxed"><strong>Movimento:</strong> {info.movimento}</p>
                 </div>
               </div>
+
+              {/* Tomorrow forecast */}
+              {tomorrowInfo && (
+                <div className="mt-3 pt-3 border-t border-slate-100">
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    <span className="font-semibold text-slate-600">Amanhã:</span>{' '}
+                    {mudaFase
+                      ? <>você entra na fase {tomorrowInfo.emoji} <strong>{tomorrowInfo.nome.toLowerCase()}</strong> — pode começar a sentir {tomorrowInfo.fisicos.slice(0, 2).join(', ').toLowerCase()}.</>
+                      : <>ainda na fase {tomorrowInfo.nome.toLowerCase()} — siga se cuidando como hoje.</>}
+                  </p>
+                </div>
+              )}
 
               {chance !== 'baixa' && (
                 <p className="text-[11px] text-slate-400 mt-2.5 leading-relaxed">
