@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, ReferenceLine,
+  ResponsiveContainer, ReferenceLine, PieChart, Pie, Cell,
+  BarChart, Bar,
 } from 'recharts'
 import { format, parseISO, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -39,6 +40,12 @@ const phaseGradients: Record<string, string> = {
 const phaseNames: Record<string, string> = {
   menstrual: 'Menstrual', folicular: 'Folicular',
   ovulatoria: 'Ovulatória', lutea: 'Lútea',
+}
+
+const moodEmoji: Record<string, string> = {
+  'Calma': '😌', 'Irritabilidade': '😠', 'Ansiedade': '😰', 'Tristeza': '😢',
+  'Choro fácil': '🥺', 'Sensibilidade': '🥹', 'Euforia': '🤩', 'Foco': '🎯',
+  'Confiança': '😎', 'Indiferença': '😐',
 }
 
 export default function Insights() {
@@ -87,6 +94,34 @@ export default function Insights() {
     }))
 
   const variability = cycleVariability(cycles)
+
+  // Overall mood distribution (for the donut)
+  const moodColors = ['#ec4899', '#f97316', '#8b5cf6', '#06b6d4', '#22c55e', '#eab308']
+  const allMoods = allLogs.flatMap((l) => l.humor ?? [])
+  const moodCounts: Record<string, number> = {}
+  for (const mood of allMoods) moodCounts[mood] = (moodCounts[mood] ?? 0) + 1
+  const moodTotal = allMoods.length
+  const moodData = Object.entries(moodCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([name, value], i) => ({
+      name,
+      value,
+      pct: Math.round((value / moodTotal) * 100),
+      color: moodColors[i % moodColors.length],
+    }))
+
+  // Period durations (for the bar chart + regularity badge)
+  const periodDurations = cycles
+    .filter((c) => c.dataFim)
+    .map((c) => ({
+      label: format(parseISO(c.dataInicio), 'd/M', { locale: ptBR }),
+      dias: differenceInDays(parseISO(c.dataFim as string), parseISO(c.dataInicio)) + 1,
+    }))
+    .slice(-10)
+  const periodMin = periodDurations.length ? Math.min(...periodDurations.map((p) => p.dias)) : 0
+  const periodMax = periodDurations.length ? Math.max(...periodDurations.map((p) => p.dias)) : 0
+  const periodRegular = periodDurations.length >= 2 && periodMax - periodMin <= 2
 
   // BBT chart for current cycle
   const tbcData = lastPeriodStart
@@ -226,6 +261,87 @@ export default function Insights() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Mood distribution donut */}
+      {moodData.length > 0 && (
+        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">
+            Humores
+          </p>
+          <div className="flex items-center gap-4">
+            <div className="relative flex-shrink-0" style={{ width: 120, height: 120 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={moodData} dataKey="value" nameKey="name"
+                    innerRadius={38} outerRadius={56} paddingAngle={2} stroke="none">
+                    {moodData.map((m, i) => <Cell key={i} fill={m.color} />)}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-lg font-bold text-slate-700">{moodTotal}</span>
+                <span className="text-[10px] text-slate-400">registros</span>
+              </div>
+            </div>
+            <div className="flex-1 space-y-1.5">
+              {moodData.map((m) => (
+                <div key={m.name} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: m.color }} />
+                    <span className="text-xs text-slate-600 truncate">
+                      {moodEmoji[m.name] ?? ''} {m.name}
+                    </span>
+                  </div>
+                  <span className="text-xs font-semibold text-slate-700 flex-shrink-0 ml-2">{m.pct}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Period duration bars */}
+      {periodDurations.length > 0 && (
+        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
+              Duração da menstruação
+            </p>
+            <span className="text-xs font-semibold text-slate-500">{avgPeriodLen} dias</span>
+          </div>
+          <ResponsiveContainer width="100%" height={120}>
+            <BarChart data={periodDurations} margin={{ top: 8, right: 5, left: -28, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f8fafc" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#94a3b8' }} />
+              <YAxis domain={[0, 'auto']} tick={{ fontSize: 10, fill: '#94a3b8' }} allowDecimals={false} />
+              <Tooltip formatter={(v) => [`${v} dias`, 'Duração']}
+                contentStyle={{ borderRadius: 12, fontSize: 12, border: '1px solid #f1f5f9' }} />
+              <defs>
+                <linearGradient id="periodBarGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#fb7185" />
+                  <stop offset="100%" stopColor="#f9a8d4" />
+                </linearGradient>
+              </defs>
+              <Bar dataKey="dias" fill="url(#periodBarGrad)" radius={[6, 6, 0, 0]} maxBarSize={26} />
+            </BarChart>
+          </ResponsiveContainer>
+          <div className="flex items-center justify-between mt-2">
+            <span className="text-xs text-slate-500">
+              {periodMin === periodMax ? `${periodMin} dias` : `${periodMin}–${periodMax} dias`}
+            </span>
+            <span className={`text-xs font-semibold flex items-center gap-1 ${periodRegular ? 'text-emerald-600' : 'text-orange-500'}`}>
+              {periodRegular ? (
+                <>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  Regular
+                </>
+              ) : 'Irregular'}
+            </span>
+          </div>
         </div>
       )}
 
