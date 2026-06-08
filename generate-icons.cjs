@@ -68,7 +68,7 @@ function gradientColor(t) {
 // entire square (no transparency) so launchers/splash screens can apply any mask
 // (circle, squircle…) without exposing black/empty corners. The symbol stays
 // within the central safe zone. When false we draw the regular circular icon.
-function drawIcon(size, fullBleed = false) {
+function drawIcon(size, fullBleed = false, symbolScale = 1) {
   const pixels = Buffer.alloc(size * size * 4, 0)
   const cx = size / 2
   const cy = size / 2
@@ -107,8 +107,10 @@ function drawIcon(size, fullBleed = false) {
   }
 
   // ── Draw white wave / cycle lines ──────────────────────────────────────────
-  const lineWidth = Math.max(2, size * 0.03)
-  const waveAmp   = size * 0.10
+  // symbolScale < 1 shrinks the symbol toward the center, giving more breathing
+  // room from the edges (safer for aggressive launcher masks on maskable icons).
+  const lineWidth = Math.max(2, size * 0.03) * symbolScale
+  const waveAmp   = size * 0.10 * symbolScale
   const waveLen   = size * 0.6
   const waveY     = cy
 
@@ -128,8 +130,8 @@ function drawIcon(size, fullBleed = false) {
   }
 
   // Draw smooth wave (anti-aliased thick line)
-  const xStart = cx - size * 0.33
-  const xEnd   = cx + size * 0.33
+  const xStart = cx - size * 0.33 * symbolScale
+  const xEnd   = cx + size * 0.33 * symbolScale
   const steps  = size * 2
 
   for (let s = 0; s < steps; s++) {
@@ -150,13 +152,13 @@ function drawIcon(size, fullBleed = false) {
   }
 
   // Draw a small circular arrow tip to suggest "cycle"
-  const arrowR = size * 0.28
+  const arrowR = size * 0.28 * symbolScale
   const arrowSteps = 180
   const arrowLW = lineWidth * 0.85
   for (let s = 0; s < arrowSteps; s++) {
     const angle = (s / arrowSteps) * Math.PI * 1.5 - Math.PI * 0.75
     const ax = cx + Math.cos(angle) * arrowR
-    const ay = cy - size * 0.05 + Math.sin(angle) * arrowR
+    const ay = cy - size * 0.05 * symbolScale + Math.sin(angle) * arrowR
     for (let dy2 = -arrowLW; dy2 <= arrowLW; dy2++) {
       for (let dx2 = -arrowLW; dx2 <= arrowLW; dx2++) {
         const d = Math.sqrt(dx2 * dx2 + dy2 * dy2)
@@ -179,8 +181,8 @@ for (const size of [192, 512]) {
   fs.writeFileSync(`public/icon-${size}.png`, png)
   console.log(`  ✓ public/icon-${size}.png (${Math.round(png.length / 1024)} KB)`)
 
-  // Maskable (full-bleed square) — purpose "maskable"
-  const maskPng = encodePNG(size, size, drawIcon(size, true))
+  // Maskable (full-bleed square, symbol shrunk into the safe zone) — purpose "maskable"
+  const maskPng = encodePNG(size, size, drawIcon(size, true, 0.8))
   fs.writeFileSync(`public/icon-maskable-${size}.png`, maskPng)
   console.log(`  ✓ public/icon-maskable-${size}.png (${Math.round(maskPng.length / 1024)} KB)`)
 }
