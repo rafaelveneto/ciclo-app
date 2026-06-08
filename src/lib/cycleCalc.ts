@@ -189,26 +189,29 @@ export function cycleHealthFlags(
   if (lengths.length >= 2) {
     const mean = lengths.reduce((a, b) => a + b, 0) / lengths.length
 
-    if (mean < 21) {
+    // FIGO (2018): normal cycle frequency is 24–38 days for ages 18–45.
+    if (mean < 24) {
       flags.push({
         level: 'atencao',
         title: 'Ciclos curtos',
-        text: 'Seus ciclos têm em média menos de 21 dias (polimenorreia). Vale conversar com um ginecologista.',
+        text: 'Seus ciclos têm em média menos de 24 dias (menstruação frequente). Vale conversar com um ginecologista.',
       })
-    } else if (mean > 35) {
+    } else if (mean > 38) {
       flags.push({
         level: 'atencao',
         title: 'Ciclos longos',
-        text: 'Seus ciclos têm em média mais de 35 dias (oligomenorreia). Pode valer uma avaliação médica.',
+        text: 'Seus ciclos têm em média mais de 38 dias (menstruação infrequente). Pode valer uma avaliação médica.',
       })
     }
 
-    const variability = cycleVariability(cycles)
-    if (variability != null && variability > 7) {
+    // FIGO: cycles are considered irregular when the shortest-to-longest
+    // variation reaches ~8 days or more.
+    const range = Math.max(...lengths) - Math.min(...lengths)
+    if (range >= 8) {
       flags.push({
         level: 'atencao',
         title: 'Ciclos irregulares',
-        text: `Há bastante variação na duração dos seus ciclos (±${variability} dias). Ciclos muito irregulares podem merecer investigação.`,
+        text: `Seus ciclos variaram ${range} dias entre o mais curto e o mais longo. Variações de 8 dias ou mais podem merecer investigação.`,
       })
     }
   }

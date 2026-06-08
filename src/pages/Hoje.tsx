@@ -5,7 +5,7 @@ import { useDb } from '../hooks/useDb'
 import { upsertDailyLog } from '../db/database'
 import PhaseTag from '../components/PhaseTag'
 import { phaseInfo, pregnancyChance, pregnancyChanceLabel } from '../lib/phaseInfo'
-import { personalPhasePatterns } from '../lib/cycleCalc'
+import { personalPhasePatterns, cycleVariability } from '../lib/cycleCalc'
 
 interface Props {
   onNavigate: (tab: 'registrar' | 'calendario') => void
@@ -63,6 +63,8 @@ export default function Hoje({ onNavigate }: Props) {
   const primeiroNome = (settings['nome'] ?? '').trim().split(' ')[0]
   const hora = new Date().getHours()
   const saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite'
+  const variability = cycleVariability(cycles)
+  const ciclosVariam = variability != null && variability >= 4
 
   // One-tap period start: logs today's flow as moderate, which auto-creates a cycle.
   // Preserves any other data already logged today.
@@ -97,6 +99,18 @@ export default function Hoje({ onNavigate }: Props) {
       </div>
 
       <div className="px-4 space-y-3">
+        {/* Best-friend daily guidance */}
+        {prediction && (
+          <div className="rounded-2xl p-4" style={{ background: 'linear-gradient(135deg, rgba(236,72,153,0.08), rgba(139,92,246,0.10))' }}>
+            <div className="flex items-start gap-3">
+              <span className="text-xl leading-none mt-0.5">{phaseInfo[prediction.currentPhase].emoji}</span>
+              <p className="text-sm text-slate-700 leading-relaxed">
+                {primeiroNome && <strong className="text-slate-800">{primeiroNome}, </strong>}
+                {phaseInfo[prediction.currentPhase].guia}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* One-tap period start */}
         {periodoAtrasadoOuProximo && (
@@ -226,6 +240,11 @@ export default function Hoje({ onNavigate }: Props) {
                 </span>
               </div>
             )}
+            {ciclosVariam && (
+              <p className="text-[11px] text-slate-400 mt-3 leading-relaxed">
+                Seus ciclos variam bastante, então a janela fértil é uma estimativa mais ampla. Não use como método contraceptivo.
+              </p>
+            )}
           </div>
         )}
 
@@ -292,6 +311,18 @@ export default function Hoje({ onNavigate }: Props) {
               <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-amber-50">
                 <span className="text-sm">💡</span>
                 <p className="text-xs text-amber-700 leading-relaxed">{info.dica}</p>
+              </div>
+
+              {/* Self-care: food + movement (cycle syncing) */}
+              <div className="mt-2 grid grid-cols-1 gap-2">
+                <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-emerald-50">
+                  <span className="text-sm">🍎</span>
+                  <p className="text-xs text-emerald-700 leading-relaxed"><strong>Alimentação:</strong> {info.alimentacao}</p>
+                </div>
+                <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-sky-50">
+                  <span className="text-sm">🏃‍♀️</span>
+                  <p className="text-xs text-sky-700 leading-relaxed"><strong>Movimento:</strong> {info.movimento}</p>
+                </div>
               </div>
 
               {chance !== 'baixa' && (
