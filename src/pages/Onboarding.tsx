@@ -156,7 +156,7 @@ export default function Onboarding({ onComplete }: Props) {
                   maxLength={40}
                   autoComplete="given-name"
                   placeholder="Seu nome ou apelido"
-                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white"
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-200 bg-white"
                 />
               </div>
 
@@ -169,7 +169,7 @@ export default function Onboarding({ onComplete }: Props) {
                   value={ultimoPeriodo}
                   max={format(new Date(), 'yyyy-MM-dd')}
                   onChange={(e) => setUltimoPeriodo(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white"
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-200 bg-white"
                 />
               </div>
 
@@ -184,7 +184,7 @@ export default function Onboarding({ onComplete }: Props) {
                     max="45"
                     value={comprimentoCiclo}
                     onChange={(e) => setComprimentoCiclo(e.target.value)}
-                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white"
+                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-200 bg-white"
                   />
                   <span className="text-slate-400 text-sm whitespace-nowrap">dias</span>
                 </div>

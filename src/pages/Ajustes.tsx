@@ -164,7 +164,7 @@ export default function Ajustes() {
 
       {/* Modo de uso */}
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-        <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">
+        <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-widest mb-3">
           Modo de uso
         </h2>
         <div className="space-y-2">
@@ -175,8 +175,8 @@ export default function Ajustes() {
               onClick={() => setModo(m.value)}
               className={`w-full text-left px-4 py-2.5 rounded-xl border transition-colors text-sm ${
                 modo === m.value
-                  ? 'border-rose-500 bg-rose-50 text-rose-700 font-medium'
-                  : 'border-slate-200 text-slate-600 hover:border-rose-200'
+                  ? 'border-violet-400 bg-violet-50 text-violet-700 font-medium'
+                  : 'border-slate-200 text-slate-600 hover:border-violet-200'
               }`}
             >
               {m.label}
@@ -187,7 +187,7 @@ export default function Ajustes() {
 
       {/* Ciclo info */}
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-4">
-        <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">
+        <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-widest">
           Perfil &amp; ciclo
         </h2>
         <div>
@@ -200,7 +200,7 @@ export default function Ajustes() {
             maxLength={40}
             placeholder="Seu nome ou apelido"
             onChange={(e) => setNome(e.target.value)}
-            className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-300"
+            className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-200"
           />
         </div>
         <div>
@@ -212,7 +212,7 @@ export default function Ajustes() {
             value={ultimoPeriodo}
             max={format(new Date(), 'yyyy-MM-dd')}
             onChange={(e) => setUltimoPeriodo(e.target.value)}
-            className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-300"
+            className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-200"
           />
         </div>
         <div>
@@ -225,14 +225,15 @@ export default function Ajustes() {
             max="45"
             value={comprimentoCiclo}
             onChange={(e) => setComprimentoCiclo(e.target.value)}
-            className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-300"
+            className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-200"
           />
         </div>
         <button
           onClick={handleSave}
-          className={`w-full py-3 rounded-xl font-semibold transition-all ${
-            saved ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white hover:bg-rose-600'
-          }`}
+          className="w-full py-3 rounded-xl font-semibold text-white transition-all"
+          style={{ background: saved
+            ? 'linear-gradient(135deg, #22c55e, #34d399)'
+            : 'linear-gradient(135deg, #8b5cf6, #ec4899)' }}
         >
           {saved ? '✓ Salvo!' : 'Salvar configurações'}
         </button>
@@ -260,7 +261,7 @@ export default function Ajustes() {
 
       {/* Backup & data */}
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-3">
-        <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-2">
+        <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-widest mb-2">
           Backup &amp; dados
         </h2>
 
@@ -317,20 +318,15 @@ export default function Ajustes() {
         </button>
       </div>
 
-      {/* About / Privacy */}
+      {/* About */}
       <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200">
-        <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">
-          Sobre &amp; Privacidade
+        <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-widest mb-3">
+          Sobre
         </h2>
         <div className="space-y-2 text-sm text-slate-600 leading-relaxed">
           <p>
             <strong className="text-slate-800">Ciclo</strong> é um aplicativo de acompanhamento
-            menstrual com foco em privacidade total.
-          </p>
-          <p>
-            🔒 <strong>Todos os seus dados são armazenados exclusivamente no seu dispositivo.</strong>{' '}
-            Nenhuma informação é enviada para servidores externos, não há contas de usuário, sem
-            rastreamento ou analytics.
+            menstrual feito para ser a sua melhor amiga durante todo o ciclo.
           </p>
           <p>
             ⚕️ Este app é apenas informativo e não substitui orientação médica profissional.
