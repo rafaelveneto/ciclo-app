@@ -4,6 +4,7 @@ import { useCycle } from '../hooks/useCycle'
 import { useDb } from '../hooks/useDb'
 import { upsertDailyLog } from '../db/database'
 import PhaseTag from '../components/PhaseTag'
+import { phaseInfo, pregnancyChance, pregnancyChanceLabel } from '../lib/phaseInfo'
 
 interface Props {
   onNavigate: (tab: 'registrar' | 'calendario') => void
@@ -226,6 +227,63 @@ export default function Hoje({ onNavigate }: Props) {
             )}
           </div>
         )}
+
+        {/* What to expect today */}
+        {prediction && (() => {
+          const phase = prediction.currentPhase
+          const info = phaseInfo[phase]
+          const chance = pregnancyChance(phase, prediction.isFertileToday, prediction.daysToOvulation)
+          const chanceColor = chance === 'alta'
+            ? 'linear-gradient(135deg, #34d399, #22d3ee)'
+            : chance === 'media'
+            ? 'linear-gradient(135deg, #fbbf24, #f97316)'
+            : 'linear-gradient(135deg, #cbd5e1, #94a3b8)'
+          return (
+            <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">O que esperar hoje</p>
+
+              {/* Quick stats */}
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                <div className="bg-slate-50 rounded-xl p-2.5 text-center">
+                  <p className="text-[10px] text-slate-400 mb-0.5">Dia do ciclo</p>
+                  <p className="font-bold text-slate-800">{prediction.currentCycleDay}</p>
+                </div>
+                <div className="rounded-xl p-2.5 text-center" style={{ background: chanceColor }}>
+                  <p className="text-[10px] text-white/80 mb-0.5">Chance de gravidez</p>
+                  <p className="font-bold text-white text-sm">{pregnancyChanceLabel[chance]}</p>
+                </div>
+                <div className="bg-slate-50 rounded-xl p-2.5 text-center">
+                  <p className="text-[10px] text-slate-400 mb-0.5">Fase</p>
+                  <p className="font-bold text-slate-800 text-sm">{info.emoji} {info.nome}</p>
+                </div>
+              </div>
+
+              <p className="text-sm text-slate-600 leading-relaxed mb-3">{info.resumo}</p>
+
+              {/* You might feel */}
+              <p className="text-xs font-semibold text-slate-400 mb-1.5">Você pode sentir</p>
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {info.fisicos.slice(0, 3).map((s) => (
+                  <span key={s} className="text-xs px-2 py-0.5 bg-rose-50 rounded-full text-rose-600 border border-rose-100">{s}</span>
+                ))}
+                {info.emocionais.slice(0, 3).map((s) => (
+                  <span key={s} className="text-xs px-2 py-0.5 bg-violet-50 rounded-full text-violet-600 border border-violet-100">{s}</span>
+                ))}
+              </div>
+
+              <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-amber-50">
+                <span className="text-sm">💡</span>
+                <p className="text-xs text-amber-700 leading-relaxed">{info.dica}</p>
+              </div>
+
+              {chance !== 'baixa' && (
+                <p className="text-[11px] text-slate-400 mt-2.5 leading-relaxed">
+                  A chance de gravidez é uma estimativa e não substitui um método contraceptivo.
+                </p>
+              )}
+            </div>
+          )
+        })()}
 
         {/* Today's log */}
         <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">

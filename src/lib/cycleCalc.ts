@@ -1,6 +1,71 @@
 import { addDays, differenceInDays, format, parseISO, isWithinInterval } from 'date-fns'
 import type { Cycle } from '../db/database'
 
+/**
+ * Phase of a single calendar day, projected across past AND future cycles by
+ * repeating the average cycle pattern from an anchor period start. This is what
+ * lets the calendar paint expected periods, fertile windows, ovulation and the
+ * luteal phase in any month — not just the current cycle.
+ *
+ * - 'menstrual'         = bleeding actually logged
+ * - 'menstrual-prevista'= predicted/expected period (not yet logged)
+ */
+export type ProjectedPhase =
+  | 'menstrual'
+  | 'menstrual-prevista'
+  | 'fertil'
+  | 'ovulacao'
+  | 'lutea'
+  | 'folicular'
+  | 'normal'
+
+export function projectDayPhase(opts: {
+  date: Date
+  anchorStart: string | null
+  cycleLen: number
+  periodLen: number
+  lutealLen: number
+  hasFlowLog: boolean
+}): ProjectedPhase {
+  const { date, anchorStart, cycleLen, periodLen, lutealLen, hasFlowLog } = opts
+  if (hasFlowLog) return 'menstrual'
+  if (!anchorStart || cycleLen < 15) return 'normal'
+
+  const daysSince = differenceInDays(date, parseISO(anchorStart))
+  // Normalize into 0..cycleLen-1 for any date (past or future)
+  const dayInCycle = ((daysSince % cycleLen) + cycleLen) % cycleLen
+
+  const ovDay = cycleLen - lutealLen - 1 // 0-indexed ovulation day within the cycle
+  const fertileStart = ovDay - 5
+  const fertileEnd = ovDay + 1
+
+  if (dayInCycle < periodLen) return 'menstrual-prevista'
+  if (dayInCycle === ovDay) return 'ovulacao'
+  if (dayInCycle >= fertileStart && dayInCycle <= fertileEnd) return 'fertil'
+  if (dayInCycle > fertileEnd) return 'lutea'
+  return 'folicular'
+}
+
+/** Maps a projected phase to the educational phase key (for "what to expect"). */
+export function projectedToPhase(
+  p: ProjectedPhase,
+): 'menstrual' | 'folicular' | 'ovulatoria' | 'lutea' | null {
+  switch (p) {
+    case 'menstrual':
+    case 'menstrual-prevista':
+      return 'menstrual'
+    case 'folicular':
+      return 'folicular'
+    case 'ovulacao':
+    case 'fertil':
+      return 'ovulatoria'
+    case 'lutea':
+      return 'lutea'
+    default:
+      return null
+  }
+}
+
 export function avgCycleLength(cycles: Cycle[]): number {
   const valid = cycles.filter((c) => c.comprimento != null && c.comprimento >= 21 && c.comprimento <= 45)
   if (valid.length === 0) return 28
