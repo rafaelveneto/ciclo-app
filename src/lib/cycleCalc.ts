@@ -1,5 +1,58 @@
 import { addDays, differenceInDays, format, parseISO, isWithinInterval } from 'date-fns'
-import type { Cycle } from '../db/database'
+import type { Cycle, DailyLog } from '../db/database'
+
+export type PhaseKey = 'menstrual' | 'folicular' | 'ovulatoria' | 'lutea'
+
+/**
+ * The user's OWN most-frequent symptoms and moods per phase, learned from her
+ * logged history. This turns the generic "what to expect" into something
+ * personal — "in this phase YOU usually feel…" — fully offline.
+ */
+export function personalPhasePatterns(opts: {
+  cycles: Cycle[]
+  logs: DailyLog[]
+  cycleLen: number
+  periodLen: number
+  lutealLen: number
+}): Record<PhaseKey, { sintomas: string[]; humor: string[] }> {
+  const { cycles, logs, cycleLen, periodLen, lutealLen } = opts
+  const tally: Record<PhaseKey, { sintomas: Record<string, number>; humor: Record<string, number> }> = {
+    menstrual: { sintomas: {}, humor: {} },
+    folicular: { sintomas: {}, humor: {} },
+    ovulatoria: { sintomas: {}, humor: {} },
+    lutea: { sintomas: {}, humor: {} },
+  }
+
+  const classify = (day: number, len: number): PhaseKey => {
+    const ovDay = len - lutealLen - 1
+    if (day < periodLen) return 'menstrual'
+    if (day >= ovDay - 1 && day <= ovDay + 1) return 'ovulatoria'
+    if (day > ovDay + 1) return 'lutea'
+    return 'folicular'
+  }
+
+  for (const cycle of cycles) {
+    if (!cycle.dataInicio) continue
+    const len = cycle.comprimento ?? cycleLen
+    for (const log of logs) {
+      const day = differenceInDays(parseISO(log.data), parseISO(cycle.dataInicio))
+      if (day < 0 || day >= len) continue
+      const phase = classify(day, len)
+      for (const s of log.sintomas ?? []) tally[phase].sintomas[s] = (tally[phase].sintomas[s] ?? 0) + 1
+      for (const h of log.humor ?? []) tally[phase].humor[h] = (tally[phase].humor[h] ?? 0) + 1
+    }
+  }
+
+  const top = (m: Record<string, number>, n: number) =>
+    Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, n).map(([k]) => k)
+
+  return {
+    menstrual: { sintomas: top(tally.menstrual.sintomas, 3), humor: top(tally.menstrual.humor, 2) },
+    folicular: { sintomas: top(tally.folicular.sintomas, 3), humor: top(tally.folicular.humor, 2) },
+    ovulatoria: { sintomas: top(tally.ovulatoria.sintomas, 3), humor: top(tally.ovulatoria.humor, 2) },
+    lutea: { sintomas: top(tally.lutea.sintomas, 3), humor: top(tally.lutea.humor, 2) },
+  }
+}
 
 /**
  * Phase of a single calendar day, projected across past AND future cycles by

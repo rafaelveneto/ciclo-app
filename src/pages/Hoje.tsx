@@ -5,6 +5,7 @@ import { useDb } from '../hooks/useDb'
 import { upsertDailyLog } from '../db/database'
 import PhaseTag from '../components/PhaseTag'
 import { phaseInfo, pregnancyChance, pregnancyChanceLabel } from '../lib/phaseInfo'
+import { personalPhasePatterns } from '../lib/cycleCalc'
 
 interface Props {
   onNavigate: (tab: 'registrar' | 'calendario') => void
@@ -55,8 +56,8 @@ function HeaderArt() {
 }
 
 export default function Hoje({ onNavigate }: Props) {
-  const { prediction, avgCycleLen, lastPeriodStart } = useCycle()
-  const { todayLog, today, settings } = useDb()
+  const { prediction, avgCycleLen, avgPeriodLen, lastPeriodStart, cycles } = useCycle()
+  const { todayLog, today, settings, allLogs } = useDb()
 
   const todayFormatted = format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })
   const primeiroNome = (settings['nome'] ?? '').trim().split(' ')[0]
@@ -233,6 +234,11 @@ export default function Hoje({ onNavigate }: Props) {
           const phase = prediction.currentPhase
           const info = phaseInfo[phase]
           const chance = pregnancyChance(phase, prediction.isFertileToday, prediction.daysToOvulation)
+          const patterns = personalPhasePatterns({
+            cycles, logs: allLogs, cycleLen: avgCycleLen, periodLen: avgPeriodLen,
+            lutealLen: prediction.lutealLength,
+          })[phase]
+          const personal = [...patterns.sintomas, ...patterns.humor]
           const chanceColor = chance === 'alta'
             ? 'linear-gradient(135deg, #34d399, #22d3ee)'
             : chance === 'media'
@@ -270,6 +276,18 @@ export default function Hoje({ onNavigate }: Props) {
                   <span key={s} className="text-xs px-2 py-0.5 bg-violet-50 rounded-full text-violet-600 border border-violet-100">{s}</span>
                 ))}
               </div>
+
+              {/* Personalized from her own history */}
+              {personal.length >= 2 && (
+                <div className="mb-3 px-3 py-2.5 rounded-xl bg-violet-50">
+                  <p className="text-[11px] font-semibold text-violet-400 mb-1.5">No seu histórico, nesta fase você costuma registrar</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {personal.map((s) => (
+                      <span key={s} className="text-xs px-2 py-0.5 bg-white rounded-full text-violet-600 border border-violet-100">{s}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-amber-50">
                 <span className="text-sm">💡</span>
