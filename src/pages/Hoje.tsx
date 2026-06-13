@@ -1,4 +1,5 @@
-import { format, parseISO } from 'date-fns'
+import { useState } from 'react'
+import { format, parseISO, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useCycle } from '../hooks/useCycle'
 import { useDb } from '../hooks/useDb'
@@ -7,6 +8,7 @@ import PhaseTag from '../components/PhaseTag'
 import { phaseInfo } from '../lib/phaseInfo'
 import { cycleVariability } from '../lib/cycleCalc'
 import OQueEsperarHoje from '../components/OQueEsperarHoje'
+import RegistrarPeriodo from '../components/RegistrarPeriodo'
 
 interface Props {
   onNavigate: (tab: 'registrar' | 'calendario') => void
@@ -67,6 +69,9 @@ export default function Hoje({ onNavigate }: Props) {
   const variability = cycleVariability(cycles)
   const ciclosVariam = variability != null && variability >= 4
 
+  // Period-span sheet (manual multi-day entry)
+  const [periodoSheet, setPeriodoSheet] = useState<{ open: boolean; start?: string; end?: string }>({ open: false })
+
   // One-tap period start: logs today's flow as moderate, which auto-creates a cycle.
   // Preserves any other data already logged today.
   const marcarMenstruacao = async () => {
@@ -80,6 +85,13 @@ export default function Hoje({ onNavigate }: Props) {
   // Show the quick action when the period is due/late and no flow logged today.
   const periodoAtrasadoOuProximo =
     prediction != null && prediction.daysUntilNext <= 1 && !todayLog?.fluxo?.intensidade
+
+  // She's currently bleeding if there's flow logged in the last 2 days.
+  const sangrando = allLogs.some((l) => {
+    if (!l.fluxo?.intensidade) return false
+    const d = differenceInDays(parseISO(today), parseISO(l.data))
+    return d >= 0 && d <= 2
+  })
 
   return (
     <div className="pb-4">
@@ -113,8 +125,8 @@ export default function Hoje({ onNavigate }: Props) {
           </div>
         )}
 
-        {/* One-tap period start */}
-        {periodoAtrasadoOuProximo && (
+        {/* Period quick actions */}
+        {periodoAtrasadoOuProximo && !sangrando && (
           <button
             onClick={marcarMenstruacao}
             className="w-full flex items-center justify-between px-4 py-3.5 rounded-2xl text-white"
@@ -130,6 +142,32 @@ export default function Hoje({ onNavigate }: Props) {
               </div>
             </div>
             <span className="text-lg">+</span>
+          </button>
+        )}
+
+        {sangrando && (
+          <button
+            onClick={() => setPeriodoSheet({ open: true, start: lastPeriodStart ?? today, end: today })}
+            className="w-full flex items-center justify-between px-4 py-3.5 rounded-2xl border-2 border-rose-200 bg-rose-50"
+          >
+            <div className="flex items-center gap-3">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e11d48" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+              <div className="text-left">
+                <p className="font-semibold text-sm text-rose-700">Minha menstruação terminou</p>
+                <p className="text-xs text-rose-400">Confirme os dias do sangramento</p>
+              </div>
+            </div>
+          </button>
+        )}
+
+        {prediction && (
+          <button
+            onClick={() => setPeriodoSheet({ open: true })}
+            className="w-full text-center text-xs font-medium text-slate-400 py-1"
+          >
+            Registrar menstruação de vários dias
           </button>
         )}
 
@@ -325,6 +363,13 @@ export default function Hoje({ onNavigate }: Props) {
           Este app é informativo e não substitui orientação médica. Consulte um profissional de saúde para decisões sobre saúde reprodutiva.
         </p>
       </div>
+
+      <RegistrarPeriodo
+        open={periodoSheet.open}
+        onClose={() => setPeriodoSheet({ open: false })}
+        initialStart={periodoSheet.start}
+        initialEnd={periodoSheet.end}
+      />
     </div>
   )
 }

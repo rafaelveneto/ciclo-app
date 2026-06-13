@@ -1,4 +1,5 @@
 import Dexie, { type Table } from 'dexie'
+import { parseISO, addDays, format, differenceInDays } from 'date-fns'
 
 export interface Cycle {
   id?: number
@@ -93,6 +94,31 @@ export async function upsertDailyLog(log: DailyLog): Promise<void> {
   } else {
     await db.dailyLogs.add(log)
   }
+}
+
+/**
+ * Fills a menstruation span (start..end inclusive) with flow, day by day. This is
+ * how we capture period DURATION while keeping the derived-cycle model intact: the
+ * cycle algorithm reads contiguous flow days, so a complete span yields a correct
+ * dataFim/duration. Days that already have a flow intensity are preserved (we only
+ * fill the gaps), and other data on each day is never touched. Returns days filled.
+ */
+export async function fillFlowRange(
+  start: string,
+  end: string,
+  intensidade = 'moderado',
+): Promise<number> {
+  const span = differenceInDays(parseISO(end), parseISO(start))
+  if (span < 0 || span > 14) return 0 // guard against typos / abuse
+  let filled = 0
+  for (let i = 0; i <= span; i++) {
+    const ds = format(addDays(parseISO(start), i), 'yyyy-MM-dd')
+    const existing = await db.dailyLogs.where('data').equals(ds).first()
+    if (existing?.fluxo?.intensidade) continue // keep days she already detailed
+    await upsertDailyLog({ ...(existing ?? {}), data: ds, fluxo: { ...(existing?.fluxo ?? {}), intensidade } })
+    filled++
+  }
+  return filled
 }
 
 // ─── Backup / restore ──────────────────────────────────────────────────────

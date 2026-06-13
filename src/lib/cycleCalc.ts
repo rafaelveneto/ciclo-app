@@ -238,6 +238,22 @@ export function cycleHealthFlags(
     })
   }
 
+  // Short bleeding — only as a PATTERN (avg ≤ 2 days across ≥ 2 recorded bleeds),
+  // never on a single episode, to avoid false alarms from incomplete logging.
+  const bleedDurations = cycles
+    .filter((c) => c.dataFim)
+    .map((c) => differenceInDays(parseISO(c.dataFim as string), parseISO(c.dataInicio)) + 1)
+  if (bleedDurations.length >= 2) {
+    const avgBleed = bleedDurations.reduce((a, b) => a + b, 0) / bleedDurations.length
+    if (avgBleed <= 2) {
+      flags.push({
+        level: 'atencao',
+        title: 'Sangramento curto',
+        text: 'Suas menstruações têm durado cerca de 1 a 2 dias. Sangramentos muito curtos ou escassos podem merecer avaliação — vale conversar com um profissional.',
+      })
+    }
+  }
+
   return flags
 }
 
