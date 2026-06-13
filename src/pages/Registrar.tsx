@@ -6,6 +6,15 @@ import ChipSelector from '../components/ChipSelector'
 import ScaleSelector from '../components/ScaleSelector'
 import { mucoFertilityLabel } from '../lib/cycleCalc'
 
+// Parses a decimal that may use a comma (pt-BR) or a dot. Returns undefined if empty/invalid.
+function toNum(s: string): number | undefined {
+  if (!s) return undefined
+  const v = parseFloat(s.replace(',', '.'))
+  return Number.isFinite(v) ? v : undefined
+}
+// Keeps only digits, comma and dot while typing.
+const onlyDecimal = (s: string) => s.replace(/[^\d.,]/g, '')
+
 // Section icons — thin SVG line art
 function SectionIcon({ type }: { type: string }) {
   const props = { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', strokeWidth: 1.5, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
@@ -207,16 +216,16 @@ export default function Registrar() {
         ? { intensidade: fluxoIntensidade, cor: fluxoCor || undefined, coagulos: fluxoCoagulos }
         : undefined,
       muco: mucoTipo ? { tipo: mucoTipo, quantidade: mucoQuantidade || undefined } : undefined,
-      tbc: tbc ? parseFloat(tbc) : undefined,
+      tbc: toNum(tbc),
       sintomas: sintomas.length > 0 ? sintomas : undefined,
       humor: humor.length > 0 ? humor : undefined,
       energiaNivel,
       sonoQualidade,
-      sonoHoras: sonoHoras ? parseFloat(sonoHoras) : undefined,
+      sonoHoras: toNum(sonoHoras),
       libido,
       apetite: apetite.length > 0 ? apetite : undefined,
       digestao: digestao || undefined,
-      peso: peso ? parseFloat(peso) : undefined,
+      peso: toNum(peso),
       sexo: sexoAtivo ? { ativo: true, protecao: sexoProtecao } : undefined,
       notas: notas || undefined,
     }
@@ -340,9 +349,9 @@ export default function Registrar() {
             Meça ao acordar, antes de sair da cama, sempre no mesmo horário. Use termômetro com 2 casas decimais.
           </p>
           <div className="relative">
-            <input type="number" step="0.01" min="35" max="40" value={tbc}
-              onChange={(e) => setTbc(e.target.value)}
-              placeholder="Ex: 36.50"
+            <input type="text" inputMode="decimal" value={tbc}
+              onChange={(e) => setTbc(onlyDecimal(e.target.value))}
+              placeholder="Ex: 36,50"
               className="w-full border border-slate-200 rounded-xl px-4 py-3 pr-12 text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-200 text-base font-mono" />
             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm">°C</span>
           </div>
@@ -382,9 +391,9 @@ export default function Registrar() {
           <div>
             <p className="text-xs font-medium text-slate-400 mb-2">Horas dormidas</p>
             <div className="relative">
-              <input type="number" step="0.5" min="0" max="24" value={sonoHoras}
-                onChange={(e) => setSonoHoras(e.target.value)}
-                placeholder="Ex: 7.5"
+              <input type="text" inputMode="decimal" value={sonoHoras}
+                onChange={(e) => setSonoHoras(onlyDecimal(e.target.value))}
+                placeholder="Ex: 7,5"
                 className="w-full border border-slate-200 rounded-xl px-4 py-2.5 pr-10 text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-200" />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs">h</span>
             </div>
@@ -418,9 +427,9 @@ export default function Registrar() {
           <div>
             <p className="text-xs font-medium text-slate-400 mb-2">Peso (kg)</p>
             <div className="relative">
-              <input type="number" step="0.1" min="30" max="200" value={peso}
-                onChange={(e) => setPeso(e.target.value)}
-                placeholder="Ex: 62.5"
+              <input type="text" inputMode="decimal" value={peso}
+                onChange={(e) => setPeso(onlyDecimal(e.target.value))}
+                placeholder="Ex: 62,5"
                 className="w-full border border-slate-200 rounded-xl px-4 py-2.5 pr-10 text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-200" />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs">kg</span>
             </div>

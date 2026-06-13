@@ -4,7 +4,7 @@ import { ptBR } from 'date-fns/locale'
 import { useCycle } from '../hooks/useCycle'
 import { useDb } from '../hooks/useDb'
 import { upsertDailyLog } from '../db/database'
-import PhaseTag from '../components/PhaseTag'
+import CycleRing from '../components/CycleRing'
 import { phaseInfo } from '../lib/phaseInfo'
 import { cycleVariability } from '../lib/cycleCalc'
 import OQueEsperarHoje from '../components/OQueEsperarHoje'
@@ -183,9 +183,31 @@ export default function Hoje({ onNavigate }: Props) {
                 Confiança {confidenceLabel[prediction.confidence]}
               </span>
             </div>
-            <div className="flex items-center gap-3 mb-4">
-              <PhaseTag phase={prediction.currentPhase} />
-              <span className="text-slate-400 text-sm">Dia {prediction.currentCycleDay} do ciclo</span>
+            <CycleRing
+              cycleLen={avgCycleLen}
+              periodLen={avgPeriodLen}
+              ovulationDay={lastPeriodStart
+                ? differenceInDays(parseISO(prediction.predictedOvulation), parseISO(lastPeriodStart)) + 1
+                : Math.round(avgCycleLen / 2)}
+              currentDay={prediction.currentCycleDay}
+              daysUntilNext={prediction.daysUntilNext}
+              phaseName={phaseInfo[prediction.currentPhase].nome}
+              phaseEmoji={phaseInfo[prediction.currentPhase].emoji}
+            />
+
+            {/* Ring legend */}
+            <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 my-4">
+              {[
+                { label: 'Menstrual', c: '#fb7185' },
+                { label: 'Fértil', c: '#86efac' },
+                { label: 'Ovulação', c: '#06b6d4' },
+                { label: 'Lútea', c: '#ddd6fe' },
+              ].map(({ label, c }) => (
+                <div key={label} className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full" style={{ background: c }} />
+                  <span className="text-[11px] text-slate-400">{label}</span>
+                </div>
+              ))}
             </div>
 
             <div className="grid grid-cols-2 gap-2.5">
