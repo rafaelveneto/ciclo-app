@@ -5,6 +5,7 @@ import { useCycle } from '../hooks/useCycle'
 import { useDb } from '../hooks/useDb'
 import { upsertDailyLog } from '../db/database'
 import CycleRing from '../components/CycleRing'
+import QuickLogHoje from '../components/QuickLogHoje'
 import { phaseInfo } from '../lib/phaseInfo'
 import { cycleVariability } from '../lib/cycleCalc'
 import OQueEsperarHoje from '../components/OQueEsperarHoje'
@@ -19,11 +20,6 @@ const confidenceGradient = {
   baixa:  'linear-gradient(135deg, #fbbf24, #f97316)',
   media:  'linear-gradient(135deg, #06b6d4, #8b5cf6)',
   alta:   'linear-gradient(135deg, #34d399, #22c55e)',
-}
-
-const fluxoLabels: Record<string, string> = {
-  spotting: 'Manchas', leve: 'Leve', moderado: 'Moderado',
-  intenso: 'Intenso', 'muito intenso': 'Muito intenso',
 }
 
 function HeaderArt() {
@@ -321,64 +317,8 @@ export default function Hoje({ onNavigate }: Props) {
           />
         )}
 
-        {/* Today's log */}
-        <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Registro de hoje</p>
-            <button
-              onClick={() => onNavigate('registrar')}
-              className="text-xs font-semibold gradient-text"
-            >
-              {todayLog ? 'Editar' : 'Registrar'}
-            </button>
-          </div>
-
-          {todayLog ? (
-            <div className="space-y-2">
-              {todayLog.fluxo?.intensidade && (
-                <div className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-rose-400" />
-                  <span className="text-sm text-slate-600">Fluxo: {fluxoLabels[todayLog.fluxo.intensidade] ?? todayLog.fluxo.intensidade}</span>
-                </div>
-              )}
-              {todayLog.sintomas && todayLog.sintomas.length > 0 && (
-                <div className="flex items-start gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-orange-400 mt-1.5" />
-                  <span className="text-sm text-slate-600">Sintomas: {todayLog.sintomas.join(', ')}</span>
-                </div>
-              )}
-              {todayLog.humor && todayLog.humor.length > 0 && (
-                <div className="flex items-start gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-violet-400 mt-1.5" />
-                  <span className="text-sm text-slate-600">Humor: {todayLog.humor.join(', ')}</span>
-                </div>
-              )}
-              {todayLog.tbc != null && (
-                <div className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-                  <span className="text-sm text-slate-600">TBC: {todayLog.tbc}°C</span>
-                </div>
-              )}
-              {todayLog.notas && (
-                <div className="flex items-start gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-slate-300 mt-1.5" />
-                  <span className="text-sm text-slate-600 line-clamp-2">{todayLog.notas}</span>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="text-center py-4">
-              <p className="text-slate-400 text-sm mb-4">Nenhum registro para hoje ainda</p>
-              <button
-                onClick={() => onNavigate('registrar')}
-                className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white"
-                style={{ background: 'linear-gradient(135deg, #ef4444, #f97316, #8b5cf6)' }}
-              >
-                + Registrar agora
-              </button>
-            </div>
-          )}
-        </div>
+        {/* Quick log — one-tap mood & symptoms from home */}
+        <QuickLogHoje todayLog={todayLog} today={today} onNavigate={onNavigate} />
 
         {/* Disclaimer */}
         <p className="text-xs text-slate-400 text-center leading-relaxed px-2 pb-2">

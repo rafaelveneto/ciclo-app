@@ -52,6 +52,7 @@ interface DayModalProps {
   log: DailyLog | undefined
   projected: ProjectedPhase
   onClose: () => void
+  onLogDay: (date: string) => void
 }
 
 function PhaseExpect({ projected }: { projected: ProjectedPhase }) {
@@ -89,7 +90,7 @@ function PhaseExpect({ projected }: { projected: ProjectedPhase }) {
   )
 }
 
-function DayModal({ date, log, projected, onClose }: DayModalProps) {
+function DayModal({ date, log, projected, onClose, onLogDay }: DayModalProps) {
   const style = phaseStyles[projected]
   return (
     <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-end justify-center"
@@ -179,8 +180,13 @@ function DayModal({ date, log, projected, onClose }: DayModalProps) {
         {/* Educational: what to expect this phase */}
         <PhaseExpect projected={projected} />
 
+        <button onClick={() => onLogDay(format(date, 'yyyy-MM-dd'))}
+          className="mt-5 w-full py-3 rounded-xl font-semibold text-sm text-white"
+          style={{ background: 'linear-gradient(135deg, #8b5cf6, #ec4899)' }}>
+          {log ? 'Editar este dia' : 'Registrar neste dia'}
+        </button>
         <button onClick={onClose}
-          className="mt-5 w-full border border-slate-200 text-slate-600 py-3 rounded-xl font-medium text-sm hover:bg-slate-50">
+          className="mt-2 w-full border border-slate-200 text-slate-600 py-3 rounded-xl font-medium text-sm hover:bg-slate-50">
           Fechar
         </button>
       </div>
@@ -188,7 +194,7 @@ function DayModal({ date, log, projected, onClose }: DayModalProps) {
   )
 }
 
-export default function Calendario() {
+export default function Calendario({ onLogDay }: { onLogDay: (date: string) => void }) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [selectedDay, setSelectedDay] = useState<Date | null>(null)
   const [glossary, setGlossary] = useState<number | null>(null)
@@ -307,6 +313,7 @@ export default function Calendario() {
           log={selectedLog}
           projected={selectedProjected}
           onClose={() => setSelectedDay(null)}
+          onLogDay={onLogDay}
         />
       )}
     </div>

@@ -27,7 +27,15 @@ function Spinner() {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('hoje')
+  const [registrarDate, setRegistrarDate] = useState<string | undefined>(undefined)
   const { isDesktop, isStandalone } = useDevice()
+
+  // Central navigation. Opening Registrar with a date pre-selects that day
+  // (e.g. from the calendar); without one it defaults to today.
+  const navigate = (tab: Tab, date?: string) => {
+    if (tab === 'registrar') setRegistrarDate(date)
+    setActiveTab(tab)
+  }
 
   // Check if onboarding is done
   const onboardingDone = useLiveQuery(async () => {
@@ -59,13 +67,13 @@ export default function App() {
   }
 
   return (
-    <Layout activeTab={activeTab} onTabChange={setActiveTab}>
+    <Layout activeTab={activeTab} onTabChange={(tab) => navigate(tab)}>
       {activeTab === 'hoje' && (
-        <Hoje onNavigate={(tab) => setActiveTab(tab)} />
+        <Hoje onNavigate={(tab) => navigate(tab)} />
       )}
       <Suspense fallback={<Spinner />}>
-        {activeTab === 'calendario' && <Calendario />}
-        {activeTab === 'registrar' && <Registrar />}
+        {activeTab === 'calendario' && <Calendario onLogDay={(date) => navigate('registrar', date)} />}
+        {activeTab === 'registrar' && <Registrar initialDate={registrarDate} />}
         {activeTab === 'insights' && <Insights />}
         {activeTab === 'ajustes' && <Ajustes />}
       </Suspense>

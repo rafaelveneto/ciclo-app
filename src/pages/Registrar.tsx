@@ -149,8 +149,8 @@ const mucoQuantidadeOptions = [
   { value: 'abundante', label: 'Abundante' },
 ]
 
-export default function Registrar() {
-  const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+export default function Registrar({ initialDate }: { initialDate?: string }) {
+  const [selectedDate, setSelectedDate] = useState(initialDate ?? format(new Date(), 'yyyy-MM-dd'))
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
