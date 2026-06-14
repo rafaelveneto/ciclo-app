@@ -1,0 +1,21 @@
+name = "ciclo-push"
+main = "worker.js"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# KV that stores each device's push subscription + its schedule.
+# Create it with:  npx wrangler kv namespace create SCHEDULES
+# then paste the returned id below.
+[[kv_namespaces]]
+binding = "SCHEDULES"
+id = "PREENCHER_APOS_CRIAR_O_KV"
+
+# Public VAPID key (safe to expose). The PRIVATE key is set as a secret:
+#   npx wrangler secret put VAPID_PRIVATE
+[vars]
+VAPID_PUBLIC = "BBMcgitsg2wGUfmFfwIWQInRI_MVHPMEypVJBWb_adQVWZLWNpMEjb2E52W6Ivbjpnu7DKWSPTrZaQS4kEv-J20"
+CONTACT_EMAIL = "mailto:gabi.benvenuto@gmail.com"
+
+# Checks for due reminders every 15 minutes.
+[triggers]
+crons = ["*/15 * * * *"]

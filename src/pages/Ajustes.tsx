@@ -4,6 +4,7 @@ import { ptBR } from 'date-fns/locale'
 import { db, setSetting, buildBackup, importBackup } from '../db/database'
 import { useDb } from '../hooks/useDb'
 import { usePwaInstall } from '../hooks/usePwaInstall'
+import NotificacoesConfig from '../components/NotificacoesConfig'
 
 const modos = [
   { value: 'geral', label: 'Acompanhamento geral' },
@@ -161,6 +162,9 @@ export default function Ajustes() {
           ))}
         </div>
       </div>
+
+      {/* Notifications */}
+      <NotificacoesConfig />
 
       {/* Modo de uso */}
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">

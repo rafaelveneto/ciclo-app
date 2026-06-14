@@ -5,6 +5,7 @@ import Layout, { type Tab } from './components/Layout'
 import Onboarding from './pages/Onboarding'
 import Hoje from './pages/Hoje'
 import DesktopGate from './components/DesktopGate'
+import NotificationRunner from './components/NotificationRunner'
 import { useDevice } from './hooks/useDevice'
 
 // Non-landing tabs are code-split so heavy deps (recharts in Insights, the
@@ -68,6 +69,7 @@ export default function App() {
 
   return (
     <Layout activeTab={activeTab} onTabChange={(tab) => navigate(tab)}>
+      <NotificationRunner />
       {activeTab === 'hoje' && (
         <Hoje onNavigate={(tab) => navigate(tab)} />
       )}

@@ -29,7 +29,9 @@ export default defineConfig({
         ]
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}']
+        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        // Adds our push + notificationclick handlers into the generated service worker.
+        importScripts: ['push-sw.js']
       }
     })
   ]
