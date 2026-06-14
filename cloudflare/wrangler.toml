@@ -8,7 +8,7 @@ compatibility_flags = ["nodejs_compat"]
 # then paste the returned id below.
 [[kv_namespaces]]
 binding = "SCHEDULES"
-id = "PREENCHER_APOS_CRIAR_O_KV"
+id = "85c877cdb61747d6b137d7144bb4e59b"
 
 # Public VAPID key (safe to expose). The PRIVATE key is set as a secret:
 #   npx wrangler secret put VAPID_PRIVATE

@@ -13,8 +13,8 @@
 export const VAPID_PUBLIC_KEY =
   'BBMcgitsg2wGUfmFfwIWQInRI_MVHPMEypVJBWb_adQVWZLWNpMEjb2E52W6Ivbjpnu7DKWSPTrZaQS4kEv-J20'
 
-// Set to your deployed Worker URL to enable real push (e.g. https://ciclo-push.<sub>.workers.dev)
-export const PUSH_API = ''
+// Deployed Cloudflare Worker that delivers push with the app closed.
+export const PUSH_API = 'https://ciclo-push.ciclo-1dcf1859.workers.dev'
 
 const ICON = import.meta.env.BASE_URL + 'icon-192.png'
 const APP_URL = import.meta.env.BASE_URL
