@@ -112,6 +112,15 @@ function isoAt(dateStr: string, hour = 8): string {
 function toISODate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
+function shiftDate(dateStr: string, days: number): string {
+  const d = new Date(dateStr + 'T00:00:00')
+  d.setDate(d.getDate() + days)
+  return toISODate(d)
+}
+
+/** How far ahead the schedule is projected, so reminders survive long absences. */
+const CYCLES_AHEAD = 3
+const LOG_DAYS_AHEAD = 30
 
 /** Builds upcoming reminders from the current prediction + preferences. */
 export function buildReminders(opts: {
@@ -120,36 +129,55 @@ export function buildReminders(opts: {
   fertileStart: string | null
   ovulation: string | null
   lutealStart: string | null
+  cycleLen: number
 }): Reminder[] {
-  const { prefs, nextPeriodStart, fertileStart, ovulation, lutealStart } = opts
+  const { prefs, nextPeriodStart, fertileStart, ovulation, lutealStart, cycleLen } = opts
   const out: Reminder[] = []
+  const len = Math.max(15, Math.round(cycleLen) || 28)
 
-  if (prefs.periodo && nextPeriodStart) {
-    const d = new Date(nextPeriodStart + 'T00:00:00')
-    d.setDate(d.getDate() - 1)
-    out.push({ at: isoAt(toISODate(d)), code: 'period_tomorrow' })
-    out.push({ at: isoAt(nextPeriodStart), code: 'period_today' })
+  // Project several cycles ahead. The server only holds what we send it, so a
+  // single-cycle schedule would run dry if she doesn't open the app for a month —
+  // exactly when the reminders matter most.
+  for (let i = 0; i < CYCLES_AHEAD; i++) {
+    const off = i * len
+    if (prefs.periodo && nextPeriodStart) {
+      out.push({ at: isoAt(shiftDate(nextPeriodStart, off - 1)), code: 'period_tomorrow' })
+      out.push({ at: isoAt(shiftDate(nextPeriodStart, off)), code: 'period_today' })
+    }
+    if (prefs.fertil && fertileStart) out.push({ at: isoAt(shiftDate(fertileStart, off)), code: 'fertile_start' })
+    if (prefs.fertil && ovulation) out.push({ at: isoAt(shiftDate(ovulation, off)), code: 'ovulation' })
+    if (prefs.humor && lutealStart) out.push({ at: isoAt(shiftDate(lutealStart, off - 1)), code: 'mood_heads_up' })
   }
-  if (prefs.fertil && fertileStart) out.push({ at: isoAt(fertileStart), code: 'fertile_start' })
-  if (prefs.fertil && ovulation) out.push({ at: isoAt(ovulation), code: 'ovulation' })
-  if (prefs.humor && lutealStart) {
-    const d = new Date(lutealStart + 'T00:00:00')
-    d.setDate(d.getDate() - 1)
-    out.push({ at: isoAt(toISODate(d)), code: 'mood_heads_up' })
+
+  // Daily "how are you today?" nudge, in the evening.
+  if (prefs.registrar) {
+    const today = toISODate(new Date())
+    for (let d = 0; d < LOG_DAYS_AHEAD; d++) {
+      out.push({ at: isoAt(shiftDate(today, d), 21), code: 'log_daily' })
+    }
   }
 
   const cutoff = Date.now() - 12 * 3600 * 1000
-  return out.filter((r) => new Date(r.at).getTime() > cutoff)
+  return out
+    .filter((r) => new Date(r.at).getTime() > cutoff)
+    .sort((a, b) => (a.at < b.at ? -1 : 1))
 }
 
 /** Local fallback: on app open, show any due reminder not already shown. */
-export async function runDueRemindersLocally(reminders: Reminder[]): Promise<void> {
+export async function runDueRemindersLocally(
+  reminders: Reminder[],
+  skipCodes: ReminderCode[] = [],
+): Promise<void> {
   if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
   if (!('serviceWorker' in navigator)) return
   const reg = await navigator.serviceWorker.ready
   const shown: Record<string, number> = JSON.parse(localStorage.getItem('notifShown') || '{}')
   const now = Date.now()
+  // Prune old bookkeeping so this map doesn't grow forever.
+  const keepAfter = now - 60 * 24 * 3600 * 1000
+  for (const k of Object.keys(shown)) if (shown[k] < keepAfter) delete shown[k]
   for (const r of reminders) {
+    if (skipCodes.includes(r.code)) continue
     const t = new Date(r.at).getTime()
     const id = `${r.code}@${r.at.slice(0, 10)}`
     if (t <= now && now - t < 18 * 3600 * 1000 && !shown[id]) {

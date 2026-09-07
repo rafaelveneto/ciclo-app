@@ -2,9 +2,7 @@ import { useState, lazy, Suspense } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from './db/database'
 import Layout, { type Tab } from './components/Layout'
-import Onboarding from './pages/Onboarding'
 import Hoje from './pages/Hoje'
-import DesktopGate from './components/DesktopGate'
 import NotificationRunner from './components/NotificationRunner'
 import { useDevice } from './hooks/useDevice'
 
@@ -14,6 +12,10 @@ const Calendario = lazy(() => import('./pages/Calendario'))
 const Registrar = lazy(() => import('./pages/Registrar'))
 const Insights = lazy(() => import('./pages/Insights'))
 const Ajustes = lazy(() => import('./pages/Ajustes'))
+// Shown at most once per device: the desktop QR gate (carries the QR library) and
+// onboarding. Keeping them out of the entry chunk speeds up every normal open.
+const DesktopGate = lazy(() => import('./components/DesktopGate'))
+const Onboarding = lazy(() => import('./pages/Onboarding'))
 
 function Spinner() {
   return (
@@ -48,7 +50,7 @@ export default function App() {
   // on their phone. An installed desktop PWA (standalone) still gets the full app.
   // (Hooks above must run unconditionally before this early return.)
   if (isDesktop && !isStandalone) {
-    return <DesktopGate />
+    return <Suspense fallback={<Spinner />}><DesktopGate /></Suspense>
   }
 
   // onboardingDone is undefined while loading, false if not done, true if done
@@ -64,7 +66,11 @@ export default function App() {
   }
 
   if (!onboardingDone) {
-    return <Onboarding onComplete={() => window.location.reload()} />
+    return (
+      <Suspense fallback={<Spinner />}>
+        <Onboarding onComplete={() => window.location.reload()} />
+      </Suspense>
+    )
   }
 
   return (

@@ -2,15 +2,15 @@
  * Generates the app icons + favicon from a single source SVG, rendered crisply
  * with sharp. The icon is FULL-BLEED (the gradient fills the whole square) so it
  * works as both "any" and "maskable", and never shows a white/empty background on
- * the splash, launcher, favicon or iOS home screen. The mark (a cycle ring with a
- * highlighted day) ties the brand to the in-app CycleRing.
+ * the splash, launcher, favicon or iOS home screen.
+ *
+ * Mark: a crescent moon — the lunar cycle. It reads cleanly at small sizes and,
+ * unlike a ring with a dot, never looks like an unread-notification badge.
+ * The crescent stays inside the maskable safe zone (max 174px from the centre,
+ * limit is ~205px), so no launcher mask can clip it.
  */
 const fs = require('fs')
 const sharp = require('sharp')
-
-// Marker position: on the ring, top-right (-45°), R = 120 from center (256,256).
-const MX = (256 + 120 * Math.cos(-Math.PI / 4)).toFixed(2)
-const MY = (256 + 120 * Math.sin(-Math.PI / 4)).toFixed(2)
 
 const svg = `<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
   <defs>
@@ -26,13 +26,10 @@ const svg = `<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://w
   </defs>
   <rect width="512" height="512" fill="url(#g)"/>
   <rect width="512" height="512" fill="url(#sheen)"/>
-  <circle cx="256" cy="256" r="120" fill="none" stroke="#ffffff" stroke-width="38" stroke-opacity="0.96"/>
-  <circle cx="${MX}" cy="${MY}" r="42" fill="url(#g)"/>
-  <circle cx="${MX}" cy="${MY}" r="33" fill="#ffffff"/>
-  <circle cx="${MX}" cy="${MY}" r="12" fill="url(#g)"/>
+  <circle cx="232" cy="256" r="150" fill="#ffffff"/>
+  <circle cx="300" cy="222" r="142" fill="url(#g)"/>
 </svg>`
 
-// Favicon source (kept as the crisp SVG)
 fs.writeFileSync('public/favicon.svg', svg)
 
 const targets = {
@@ -46,10 +43,6 @@ const targets = {
     await sharp(Buffer.from(svg)).resize(size, size).png().toFile(`public/${name}`)
     const kb = Math.round(fs.statSync(`public/${name}`).size / 1024)
     console.log(`  ✓ public/${name} (${kb} KB)`)
-  }
-  // Remove the now-unused dedicated maskable files (the full-bleed icon covers both).
-  for (const f of ['public/icon-maskable-192.png', 'public/icon-maskable-512.png']) {
-    if (fs.existsSync(f)) { fs.unlinkSync(f); console.log(`  ✗ removed ${f}`) }
   }
   console.log('Done!')
 })()

@@ -1,7 +1,9 @@
 import { useEffect } from 'react'
 import { useCycle } from '../hooks/useCycle'
+import { useDb } from '../hooks/useDb'
 import {
   getPrefs, buildReminders, runDueRemindersLocally, getSubscription, syncToServer,
+  type ReminderCode,
 } from '../lib/notifications'
 
 /**
@@ -10,7 +12,9 @@ import {
  * no backend), and re-syncs the schedule to the push server (if configured).
  */
 export default function NotificationRunner() {
-  const { prediction } = useCycle()
+  const { prediction, avgCycleLen } = useCycle()
+  const { todayLog } = useDb()
+  const jaRegistrouHoje = !!todayLog
 
   useEffect(() => {
     const prefs = getPrefs()
@@ -21,10 +25,13 @@ export default function NotificationRunner() {
       fertileStart: prediction.fertileWindowStart,
       ovulation: prediction.predictedOvulation,
       lutealStart: prediction.lutealStart,
+      cycleLen: avgCycleLen,
     })
-    runDueRemindersLocally(reminders)
+    // Don't nudge her to log if she already did today.
+    const skip: ReminderCode[] = jaRegistrouHoje ? ['log_daily'] : []
+    runDueRemindersLocally(reminders, skip)
     getSubscription().then((sub) => syncToServer(sub, reminders))
-  }, [prediction])
+  }, [prediction, avgCycleLen, jaRegistrouHoje])
 
   return null
 }

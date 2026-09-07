@@ -25,7 +25,7 @@ const subToggles: { key: keyof NotifPrefs; label: string; desc: string }[] = [
 ]
 
 export default function NotificacoesConfig() {
-  const { prediction } = useCycle()
+  const { prediction, avgCycleLen } = useCycle()
   const [prefs, setPrefsState] = useState<NotifPrefs>(getPrefs())
   const [perm, setPerm] = useState(permissionState())
   const [busy, setBusy] = useState(false)
@@ -40,6 +40,7 @@ export default function NotificacoesConfig() {
       fertileStart: prediction.fertileWindowStart,
       ovulation: prediction.predictedOvulation,
       lutealStart: prediction.lutealStart,
+      cycleLen: avgCycleLen,
     })
     runDueRemindersLocally(reminders)
     getSubscription().then((sub) => syncToServer(sub, reminders))
