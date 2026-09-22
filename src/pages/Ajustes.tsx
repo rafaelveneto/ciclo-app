@@ -18,6 +18,7 @@ export default function Ajustes() {
   const { settings, allLogs } = useDb()
   const { isInstalled } = usePwaInstall()
   const [nome, setNome] = useState('')
+  const [idade, setIdade] = useState('')
   const [modo, setModo] = useState('')
   const [ultimoPeriodo, setUltimoPeriodo] = useState('')
   const [comprimentoCiclo, setComprimentoCiclo] = useState('28')
@@ -32,6 +33,7 @@ export default function Ajustes() {
 
   useEffect(() => {
     if (settings['nome']) setNome(settings['nome'])
+    if (settings['idade']) setIdade(settings['idade'])
     if (settings['modo']) setModo(settings['modo'])
     if (settings['ultimoPeriodo']) setUltimoPeriodo(settings['ultimoPeriodo'])
     if (settings['comprimentoCiclo']) setComprimentoCiclo(settings['comprimentoCiclo'])
@@ -39,6 +41,7 @@ export default function Ajustes() {
 
   const handleSave = async () => {
     if (nome.trim()) await setSetting('nome', nome.trim())
+    if (idade.trim()) await setSetting('idade', idade.trim())
     if (modo) await setSetting('modo', modo)
     if (ultimoPeriodo) await setSetting('ultimoPeriodo', ultimoPeriodo)
     if (comprimentoCiclo) await setSetting('comprimentoCiclo', comprimentoCiclo)
@@ -206,6 +209,23 @@ export default function Ajustes() {
             onChange={(e) => setNome(e.target.value)}
             className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-200"
           />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-2">
+            Sua idade
+          </label>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={idade}
+            maxLength={2}
+            placeholder="Ex: 42"
+            onChange={(e) => setIdade(e.target.value.replace(/\D/g, ''))}
+            className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-200"
+          />
+          <p className="text-xs text-slate-400 mt-1.5">
+            Ajuda a interpretar seus ciclos: a faixa considerada normal muda com a idade.
+          </p>
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">

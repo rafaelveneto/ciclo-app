@@ -8,7 +8,7 @@ import { format, parseISO, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useCycle } from '../hooks/useCycle'
 import { useDb } from '../hooks/useDb'
-import { detectThermalShift, cycleVariability, cycleHealthFlags } from '../lib/cycleCalc'
+import { detectThermalShift, cycleVariability, cycleHealthFlags, detectBaselineShift } from '../lib/cycleCalc'
 import { averageLutealLength } from '../lib/cycleDetection'
 import { generateMedicalReportPdf } from '../lib/report'
 import SaibaMais from '../components/SaibaMais'
@@ -55,7 +55,9 @@ export default function Insights() {
   const [reportBusy, setReportBusy] = useState(false)
 
   const lutealLen = averageLutealLength(cycles, allLogs)
-  const healthFlags = cycleHealthFlags(cycles, lutealLen)
+  const idade = settings['idade'] ? parseInt(settings['idade'], 10) : null
+  const healthFlags = cycleHealthFlags(cycles, lutealLen, idade)
+  const baselineShift = detectBaselineShift(cycles)
   const variabilityForReport = cycleVariability(cycles)
 
   const handleReport = async () => {
@@ -242,6 +244,34 @@ export default function Insights() {
           gradient="linear-gradient(135deg, #8b5cf6, #ec4899)"
         />
       </div>
+
+      {/* Sustained change in her usual cycle length */}
+      {baselineShift && (
+        <div className="rounded-2xl p-5 border" style={{
+          borderColor: 'rgba(139,92,246,0.35)', background: 'rgba(139,92,246,0.07)'
+        }}>
+          <div className="flex items-start gap-3">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="1.8"
+              strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5">
+              <path d="M3 17l6-6 4 4 7-7" /><path d="M17 8h4v4" />
+            </svg>
+            <div>
+              <p className="text-sm font-semibold text-slate-800">Seu padrão de ciclo mudou</p>
+              <p className="text-xs text-slate-600 leading-relaxed mt-1">
+                Seus ciclos costumavam durar cerca de <strong>{baselineShift.from} dias</strong> e,
+                nos últimos {baselineShift.cyclesInNewPattern}, passaram para cerca de{' '}
+                <strong>{baselineShift.to} dias</strong> — ficaram{' '}
+                {baselineShift.direction === 'longer' ? 'mais longos' : 'mais curtos'}.
+              </p>
+              <p className="text-xs text-slate-500 leading-relaxed mt-2">
+                Mudanças assim podem ter várias causas — medicamentos, estresse, tireoide ou a
+                transição menopausal. Não é motivo para alarme nem para mudar qualquer remédio por
+                conta própria, mas é uma informação útil para levar ao seu médico.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Health flags */}
       {healthFlags.length > 0 && (

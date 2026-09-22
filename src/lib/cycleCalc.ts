@@ -119,31 +119,83 @@ export function projectedToPhase(
   }
 }
 
-export function avgCycleLength(cycles: Cycle[]): number {
-  const valid = cycles.filter((c) => c.comprimento != null && c.comprimento >= 21 && c.comprimento <= 45)
-  if (valid.length === 0) return 28
-  return Math.round(valid.reduce((acc, c) => acc + (c.comprimento ?? 28), 0) / valid.length)
+/**
+ * Plausibility bounds for a recorded cycle. These MUST match what the detector
+ * accepts: a narrower window here would silently drop genuinely short cycles
+ * (someone can run ~21 days, or less) and quietly bias every statistic upwards.
+ */
+const MIN_CYCLE = 15
+const MAX_CYCLE = 60
+
+function validLengths(cycles: Cycle[]): number[] {
+  return cycles
+    .filter((c) => c.comprimento != null && c.comprimento >= MIN_CYCLE && c.comprimento <= MAX_CYCLE)
+    .map((c) => c.comprimento as number)
+}
+
+function median(nums: number[]): number {
+  const s = [...nums].sort((a, b) => a - b)
+  const mid = Math.floor(s.length / 2)
+  return s.length % 2 ? s[mid] : Math.round((s[mid - 1] + s[mid]) / 2)
 }
 
 /**
- * Weighted average cycle length — recent cycles count more, because the body
- * changes over time (stress, age, lifestyle). Uses the last up-to-6 cycles with
- * linearly increasing weights. This tracks real shifts far better than a flat mean.
+ * Baseline cycle length — the MEDIAN of the recent window, not a mean.
+ *
+ * A couple of atypical months must not redefine what is normal for her: someone
+ * whose cycles run ~21 days should keep being predicted at ~21 while a 28-day
+ * stretch is still the exception. A mean (especially one weighted towards recent
+ * cycles) chases those outliers; the median only moves once the new pattern
+ * actually becomes the majority — which is also when it's real.
  */
-export function weightedAvgCycleLength(cycles: Cycle[]): number {
-  const valid = cycles
-    .filter((c) => c.comprimento != null && c.comprimento >= 21 && c.comprimento <= 45)
-    .map((c) => c.comprimento as number)
+export function medianCycleLength(cycles: Cycle[], windowSize = 6): number {
+  const valid = validLengths(cycles)
   if (valid.length === 0) return 28
-  const recent = valid.slice(-6)
-  let weightedSum = 0
-  let weightTotal = 0
-  recent.forEach((len, i) => {
-    const w = i + 1 // most recent gets highest weight
-    weightedSum += len * w
-    weightTotal += w
-  })
-  return Math.round(weightedSum / weightTotal)
+  return median(valid.slice(-windowSize))
+}
+
+export interface BaselineShift {
+  from: number
+  to: number
+  direction: 'longer' | 'shorter'
+  cyclesInNewPattern: number
+}
+
+/**
+ * Detects a SUSTAINED change in her usual cycle length instead of quietly
+ * absorbing it. A move like ~21 → ~28 days is itself a clinical signal (medication,
+ * stress, thyroid, the menopause transition…), so the app should name it.
+ *
+ * Requires every recent cycle to sit on the same side of the old baseline, so a
+ * single odd month never triggers it.
+ */
+export function detectBaselineShift(
+  cycles: Cycle[],
+  opts: { run?: number; minDelta?: number } = {},
+): BaselineShift | null {
+  const run = opts.run ?? 3
+  const minDelta = opts.minDelta ?? 4
+  const lengths = validLengths(cycles)
+  if (lengths.length < run + 2) return null
+
+  const recent = lengths.slice(-run)
+  const previous = lengths.slice(Math.max(0, lengths.length - run - 6), lengths.length - run)
+  if (previous.length < 2) return null
+
+  const before = median(previous)
+  const now = median(recent)
+  const delta = now - before
+  if (Math.abs(delta) < minDelta) return null
+
+  const consistent = delta > 0 ? recent.every((l) => l > before) : recent.every((l) => l < before)
+  if (!consistent) return null
+
+  return {
+    from: before,
+    to: now,
+    direction: delta > 0 ? 'longer' : 'shorter',
+    cyclesInNewPattern: run,
+  }
 }
 
 export function avgPeriodLength(cycles: Cycle[]): number {
@@ -157,9 +209,7 @@ export function avgPeriodLength(cycles: Cycle[]): number {
 
 // Standard deviation of cycle lengths — better than max-min for variability
 export function cycleVariability(cycles: Cycle[]): number | null {
-  const lengths = cycles
-    .filter((c) => c.comprimento != null && c.comprimento >= 21 && c.comprimento <= 45)
-    .map((c) => c.comprimento as number)
+  const lengths = validLengths(cycles)
   if (lengths.length < 2) return null
   const mean = lengths.reduce((a, b) => a + b, 0) / lengths.length
   const variance = lengths.reduce((acc, v) => acc + (v - mean) ** 2, 0) / lengths.length
@@ -180,40 +230,55 @@ export interface HealthFlag {
 export function cycleHealthFlags(
   cycles: Cycle[],
   lutealLength: number | null,
+  idade?: number | null,
 ): HealthFlag[] {
   const flags: HealthFlag[] = []
-  const lengths = cycles
-    .filter((c) => c.comprimento != null)
-    .map((c) => c.comprimento as number)
+  const lengths = validLengths(cycles)
+
+  // FIGO irregularity threshold depends on age: 8 days for 26–41, but 10 days
+  // for 18–25 and 42–45 — wider natural variation at both ends of the range.
+  const limiarIrregular = idade != null && (idade <= 25 || idade >= 42) ? 10 : 8
+  let curtos = false
+  let irregular = false
 
   if (lengths.length >= 2) {
     const mean = lengths.reduce((a, b) => a + b, 0) / lengths.length
 
     // FIGO (2018): normal cycle frequency is 24–38 days for ages 18–45.
     if (mean < 24) {
+      curtos = true
       flags.push({
         level: 'atencao',
         title: 'Ciclos curtos',
-        text: 'Seus ciclos têm em média menos de 24 dias (menstruação frequente). Vale conversar com um ginecologista.',
+        text: `Seus ciclos têm em média ${Math.round(mean)} dias — menos de 24 (menstruação frequente). Vale conversar com um ginecologista.`,
       })
     } else if (mean > 38) {
       flags.push({
         level: 'atencao',
         title: 'Ciclos longos',
-        text: 'Seus ciclos têm em média mais de 38 dias (menstruação infrequente). Pode valer uma avaliação médica.',
+        text: `Seus ciclos têm em média ${Math.round(mean)} dias — mais de 38 (menstruação infrequente). Pode valer uma avaliação médica.`,
       })
     }
 
-    // FIGO: cycles are considered irregular when the shortest-to-longest
-    // variation reaches ~8 days or more.
     const range = Math.max(...lengths) - Math.min(...lengths)
-    if (range >= 8) {
+    if (range >= limiarIrregular) {
+      irregular = true
       flags.push({
         level: 'atencao',
         title: 'Ciclos irregulares',
-        text: `Seus ciclos variaram ${range} dias entre o mais curto e o mais longo. Variações de 8 dias ou mais podem merecer investigação.`,
+        text: `Seus ciclos variaram ${range} dias entre o mais curto e o mais longo. Para a sua idade, variações de ${limiarIrregular} dias ou mais podem merecer investigação.`,
       })
     }
+  }
+
+  // Context for the menopause transition: cycles typically SHORTEN first and then
+  // become erratic. Framed as context, never as a diagnosis.
+  if (idade != null && idade >= 40 && (curtos || irregular)) {
+    flags.push({
+      level: 'info',
+      title: 'Pode ser a transição menopausal',
+      text: 'A partir dos 40, é comum os ciclos encurtarem e depois ficarem irregulares — faz parte da transição para a menopausa. Não é a única explicação possível (medicamentos e tireoide também alteram o ciclo), por isso vale levar esse histórico ao seu médico.',
+    })
   }
 
   if (lutealLength != null && lutealLength < 10) {

@@ -3,7 +3,7 @@ import { format, addDays, parseISO } from 'date-fns'
 import { useDb } from './useDb'
 import {
   avgPeriodLength,
-  weightedAvgCycleLength,
+  medianCycleLength,
   cycleVariability,
   predictCycle,
   type CyclePrediction,
@@ -22,7 +22,7 @@ export function useCycle(): {
   const { allLogs, settings, cycles } = useDb()
 
   const avgCycleLen = useMemo(() => {
-    if (cycles.some((c) => c.comprimento != null)) return weightedAvgCycleLength(cycles)
+    if (cycles.some((c) => c.comprimento != null)) return medianCycleLength(cycles)
     const fromSettings = settings['comprimentoCiclo']
     return fromSettings ? parseInt(fromSettings, 10) : 28
   }, [cycles, settings])
