@@ -49,6 +49,22 @@ export interface Medication {
   horario: string
   frequencia: string
   ativo: boolean
+  /** When she started it — this is what lets us line a medication up against a
+   *  change in cycle pattern (several psychotropics can alter the cycle). */
+  inicio?: string // YYYY-MM-DD
+  fim?: string // YYYY-MM-DD, if stopped
+  dose?: string
+  observacao?: string
+}
+
+/** A blood test. Values are keyed by the catalogue in lib/exames.ts. */
+export interface Exame {
+  id?: number
+  data: string // YYYY-MM-DD (collection date)
+  /** Cycle day on the collection date — FSH/estradiol are only interpretable with it. */
+  diaDoCiclo?: number
+  valores: { chave: string; valor: number }[]
+  notas?: string
 }
 
 class CicloDatabase extends Dexie {
@@ -56,6 +72,7 @@ class CicloDatabase extends Dexie {
   dailyLogs!: Table<DailyLog>
   settings!: Table<Setting>
   medications!: Table<Medication>
+  exames!: Table<Exame>
 
   constructor() {
     super('CicloDB')
@@ -64,6 +81,14 @@ class CicloDatabase extends Dexie {
       dailyLogs: '++id, &data',
       settings: '++id, chave',
       medications: '++id, nome, horario, frequencia, ativo',
+    })
+    // v2 adds blood tests and medication start/stop dates (purely additive).
+    this.version(2).stores({
+      cycles: '++id, dataInicio, dataFim, comprimento',
+      dailyLogs: '++id, &data',
+      settings: '++id, chave',
+      medications: '++id, nome, horario, frequencia, ativo, inicio',
+      exames: '++id, data',
     })
   }
 }
@@ -129,17 +154,19 @@ export interface BackupData {
   dailyLogs?: DailyLog[]
   settings?: Setting[]
   medications?: Medication[]
+  exames?: Exame[]
   cycles?: Cycle[] // legacy (cycles are now derived from logs) — ignored on import
 }
 
 /** Snapshot of everything worth keeping. Cycles are derived, so we don't export them. */
 export async function buildBackup(): Promise<BackupData> {
-  const [dailyLogs, settings, medications] = await Promise.all([
+  const [dailyLogs, settings, medications, exames] = await Promise.all([
     db.dailyLogs.toArray(),
     db.settings.toArray(),
     db.medications.toArray(),
+    db.exames.toArray(),
   ])
-  return { version: 2, exportedAt: new Date().toISOString(), dailyLogs, settings, medications }
+  return { version: 3, exportedAt: new Date().toISOString(), dailyLogs, settings, medications, exames }
 }
 
 /**
@@ -150,8 +177,10 @@ export async function buildBackup(): Promise<BackupData> {
  * id from another phone would silently overwrite unrelated rows or violate the
  * unique `data` index. Same-day entries are replaced by the backup's version.
  */
-export async function importBackup(data: BackupData): Promise<{ logs: number; settings: number; meds: number }> {
-  const result = { logs: 0, settings: 0, meds: 0 }
+export async function importBackup(
+  data: BackupData,
+): Promise<{ logs: number; settings: number; meds: number; exames: number }> {
+  const result = { logs: 0, settings: 0, meds: 0, exames: 0 }
 
   if (Array.isArray(data.dailyLogs)) {
     for (const raw of data.dailyLogs) {
@@ -178,6 +207,18 @@ export async function importBackup(data: BackupData): Promise<{ logs: number; se
       if (existing?.id != null) await db.medications.update(existing.id, rest)
       else await db.medications.add(rest as Medication)
       result.meds++
+    }
+  }
+
+  // Blood tests — merged by collection date (the natural key), same rule as logs.
+  if (Array.isArray(data.exames)) {
+    for (const e of data.exames) {
+      if (!e?.data) continue
+      const { id: _id, ...rest } = e
+      const existing = await db.exames.where('data').equals(e.data).first()
+      if (existing?.id != null) await db.exames.update(existing.id, rest)
+      else await db.exames.add(rest as Exame)
+      result.exames++
     }
   }
 

@@ -103,7 +103,7 @@ export default function Ajustes() {
           return
         }
         const r = await importBackup(data)
-        alert(`Backup restaurado!\n\n${r.logs} dias · ${r.settings} ajustes · ${r.meds} medicamentos`)
+        alert(`Backup restaurado!\n\n${r.logs} dias · ${r.settings} ajustes · ${r.meds} medicamentos · ${r.exames} exames`)
         window.location.reload()
       } catch {
         alert('Erro ao importar. Verifique se o arquivo é um backup válido do Ciclo.')
@@ -124,6 +124,7 @@ export default function Ajustes() {
       await db.dailyLogs.clear()
       await db.settings.clear()
       await db.medications.clear()
+      await db.exames.clear()
       window.location.reload()
     }
   }

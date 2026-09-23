@@ -1,10 +1,12 @@
 import { format, parseISO, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import type { Cycle, DailyLog } from '../db/database'
+import type { Cycle, DailyLog, Medication, Exame } from '../db/database'
 import type { HealthFlag } from './cycleCalc'
+import { itemPorChave, statusValor } from './exames'
 
 export interface ReportInput {
   nome: string
+  idade?: number | null
   cycles: Cycle[]
   logs: DailyLog[]
   avgCycleLen: number
@@ -12,6 +14,8 @@ export interface ReportInput {
   variability: number | null
   lutealLen: number | null
   flags: HealthFlag[]
+  medications?: Medication[]
+  exames?: Exame[]
 }
 
 function countTop(items: string[], limit: number): { label: string; pct: number }[] {
@@ -87,7 +91,8 @@ export async function generateMedicalReportPdf(input: ReportInput): Promise<void
   doc.setTextColor(100, 116, 139)
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(10.5)
-  doc.text(`${input.nome || 'Usuária'}  ·  gerado em ${format(new Date(), "d 'de' MMMM 'de' yyyy", { locale: ptBR })}`, M, 64)
+  const idadeTxt = input.idade ? `${input.idade} anos  ·  ` : ''
+  doc.text(`${input.nome || 'Usuária'}  ·  ${idadeTxt}gerado em ${format(new Date(), "d 'de' MMMM 'de' yyyy", { locale: ptBR })}`, M, 64)
   const sortedLogs = [...input.logs].sort((a, b) => (a.data > b.data ? 1 : -1))
   if (sortedLogs.length > 0) {
     const ini = format(parseISO(sortedLogs[0].data), 'dd/MM/yyyy')
@@ -151,6 +156,53 @@ export async function generateMedicalReportPdf(input: ReportInput): Promise<void
       paragraph('Sintomas: ' + symptoms.map((s) => `${s.label} (${s.pct}%)`).join(', '))
     }
     y += 6
+  }
+
+  // ── Medicamentos ───────────────────────────────────────────────────────────
+  const meds = input.medications ?? []
+  if (meds.length > 0) {
+    heading('Medicamentos')
+    for (const m of meds) {
+      ensure(16)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(10)
+      doc.setTextColor(30, 41, 59)
+      const desde = m.inicio ? `desde ${format(parseISO(m.inicio), 'dd/MM/yyyy')}` : 'início não informado'
+      const parou = m.fim ? `, parou em ${format(parseISO(m.fim), 'dd/MM/yyyy')}` : ''
+      const estado = m.ativo ? '' : ' (não usa mais)'
+      doc.text(`• ${m.nome}${m.dose ? ` — ${m.dose}` : ''} (${desde}${parou})${estado}`, M, y)
+      y += 15
+    }
+    y += 6
+  }
+
+  // ── Exames de sangue ───────────────────────────────────────────────────────
+  const exames = [...(input.exames ?? [])].sort((a, b) => (a.data > b.data ? -1 : 1)).slice(0, 4)
+  if (exames.length > 0) {
+    heading('Exames de sangue')
+    for (const e of exames) {
+      ensure(20)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(10)
+      doc.setTextColor(30, 41, 59)
+      const dia = e.diaDoCiclo ? ` (dia ${e.diaDoCiclo} do ciclo)` : ''
+      doc.text(`${format(parseISO(e.data), 'dd/MM/yyyy')}${dia}`, M, y)
+      y += 14
+      const partes = e.valores.map((v) => {
+        const item = itemPorChave(v.chave)
+        const st = statusValor(v.chave, v.valor)
+        const marca = st === 'alto' ? ' (acima)' : st === 'baixo' ? ' (abaixo)' : ''
+        return `${item?.label ?? v.chave}: ${v.valor} ${item?.unidade ?? ''}${marca}`.trim()
+      })
+      if (partes.length > 0) paragraph(partes.join(' · '))
+      if (e.notas) paragraph(e.notas)
+      y += 4
+    }
+    paragraph(
+      'Faixas de referência conforme o laboratório emissor. FSH e estradiol dependem do dia do ciclo.',
+      [148, 163, 184],
+    )
+    y += 4
   }
 
   // ── Observações de saúde ───────────────────────────────────────────────────

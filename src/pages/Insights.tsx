@@ -6,12 +6,16 @@ import {
 } from 'recharts'
 import { format, parseISO, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { db } from '../db/database'
 import { useCycle } from '../hooks/useCycle'
 import { useDb } from '../hooks/useDb'
 import { detectThermalShift, cycleVariability, cycleHealthFlags, detectBaselineShift } from '../lib/cycleCalc'
 import { averageLutealLength } from '../lib/cycleDetection'
 import { generateMedicalReportPdf } from '../lib/report'
 import SaibaMais from '../components/SaibaMais'
+import ExamesCard from '../components/ExamesCard'
+import MedicamentosCard from '../components/MedicamentosCard'
 
 function StatCard({
   label, value, sub, gradient,
@@ -55,6 +59,8 @@ export default function Insights() {
   const [reportBusy, setReportBusy] = useState(false)
 
   const lutealLen = averageLutealLength(cycles, allLogs)
+  const medications = useLiveQuery(() => db.medications.toArray(), []) ?? []
+  const exames = useLiveQuery(() => db.exames.toArray(), []) ?? []
   const idade = settings['idade'] ? parseInt(settings['idade'], 10) : null
   const healthFlags = cycleHealthFlags(cycles, lutealLen, idade)
   const baselineShift = detectBaselineShift(cycles)
@@ -65,6 +71,7 @@ export default function Insights() {
     try {
       await generateMedicalReportPdf({
         nome: settings['nome'] ?? '',
+        idade,
         cycles,
         logs: allLogs,
         avgCycleLen,
@@ -72,6 +79,8 @@ export default function Insights() {
         variability: variabilityForReport,
         lutealLen,
         flags: healthFlags,
+        medications,
+        exames,
       })
     } catch {
       alert('Não foi possível gerar o relatório. Tente novamente.')
@@ -585,6 +594,10 @@ export default function Insights() {
           </p>
         </div>
       )}
+
+      {/* Medications and blood tests — the material she takes to the doctor */}
+      <MedicamentosCard />
+      <ExamesCard />
 
       {/* Medical report (PDF) */}
       {allLogs.length > 0 && (
